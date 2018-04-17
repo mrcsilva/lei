@@ -1,0 +1,191 @@
+//require our websocket library
+var WebSocketServer = require('ws').Server;
+
+//creating a websocket server at port 9090
+var wss = new WebSocketServer({port: 9090});
+
+//all connected to the server users
+var conUsers = [];
+
+function logged(name) {
+    var len = conUsers.length;
+    for(i = 0; i < len; i++) {
+        if(name==conUsers[i].name) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+function getUsersString() {
+    var result = "";
+    var len = conUsers.length;
+    for(i = 0; i < len; i++) {
+        result += conUsers[i].name+";";
+    }
+    return result;
+}
+
+function getConUser(name) {
+    var conn = null;
+    var len = conUsers.length;
+    for(i = 0; i < len; i++) {
+        if(name==conUsers[i].name) {
+            conn = conUsers[i];
+            break;
+        }
+    }
+    return conn;
+}
+
+function removeUser(name) {
+    var len = conUsers.length;
+    for(i = 0; i < len; i++) {
+        if(name==conUsers[i].name) {
+            break;
+        }
+    }
+    conUsers.splice(i,1);
+}
+
+//when a user connects to our sever
+wss.on('connection', function(connection) {
+
+    console.log("User connected");
+
+    //when server gets a message from a connected user
+    connection.on('message', function(message) {
+
+        var data;
+        // Accepting only JSON messages
+        try {
+            data = JSON.parse(message);
+        }
+        catch (e) {
+            console.log("Invalid JSON");
+            data = {};
+        }
+
+        // Switching type of the user message
+        switch (data.type) {
+            // When a user tries to login
+            case "login":
+                console.log("User logged", data.name);
+                // If anyone is logged in with this username then refuse
+                if(logged(data.name)) {
+                    sendTo(connection, {
+                        type: "login",
+                        success: false,
+                        users: ""
+                    });
+                }
+                else {
+                    // Save user connection on the server
+                    var temp = {
+                        name: data.name,
+                        con: connection
+                    };
+
+                    conUsers.push(temp);
+
+                    var us = getUsersString();
+                    sendTo(connection, {
+                        type: "login",
+                        success: true,
+                        users: us
+                    });
+                }
+                break;
+
+            case "offer":
+                //for ex. UserA wants to call UserB
+                console.log("Sending offer to: ", data.name);
+
+                //if UserB exists then send him offer details
+                var usrObj = getConUser(data.name);
+
+                if(usrObj != null) {
+                    //setting that UserA connected with UserB
+
+                    sendTo(usrObj.con, {
+                        type: "offer",
+                        offer: data.offer,
+                        name: usrObj.name
+                    });
+                }
+                break;
+
+            case "answer":
+                console.log("Sending answer to: ", data.name);
+                //for ex. UserB answers UserA
+                var usrObj = getConUser(data.name);
+
+                if(usrObj.con != null) {
+                    sendTo(usrObj.con, {
+                        type: "answer",
+                        answer: data.answer
+                    });
+                }
+                break;
+
+            case "candidate":
+                console.log("Sending candidate to: ", data.name);
+                var usrObj = getConUser(data.name);
+
+                if(usrObj.con != null) {
+                    sendTo(usrObj.con, {
+                        type: "candidate",
+                        candidate: data.candidate
+                    });
+                }
+                break;
+
+            case "leave":
+                console.log("Disconnecting from", data.name);
+                removeUser(data.name);
+                //notify the other user so he can disconnect his peer connection
+                for(i = 0; i < conUsers.length; i++) {
+                    if(conUsers[i].con != null) {
+                        sendTo(conUsers[i].con, {
+                            type: "leave",
+                            name: data.name
+                        });
+                    }
+                }
+                break;
+
+            default:
+                sendTo(connection, {
+                    type: "error",
+                    message: "Command not found: " + data.type
+                });
+                break;
+        }
+    });
+
+   //when user exits, for example closes a browser window
+   //this may help if we are still in "offer","answer" or "candidate" state
+   connection.on("close", function() {
+
+        if(connection) {
+            removeUser(connection.name);
+            console.log("Disconnecting other peers!");
+
+            for(i = 0; i < conUsers.length; i++) {
+                if(conUsers[i].con != null) {
+                    sendTo(conUsers[i].con, {
+                        type: "leave",
+                        name: data.name
+                    });
+                }
+            }
+        }
+    });
+
+    connection.send(JSON.stringify({type: "hello", msg: "Hello world"}));
+
+});
+
+function sendTo(connection, message) {
+    connection.send(JSON.stringify(message));
+}

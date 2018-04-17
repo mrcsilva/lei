@@ -1,0 +1,13 @@
+{
+   "name": "webrtc-textochat",
+   "version": "0.1.0",
+   "description": "webrtc-textchat",
+   "author": "Author",
+   "license": "BSD-2-Clause",
+   "dependencies": {
+      "bootstrap": "^4.0.0",
+      "jquery": "^3.3.1",
+      "popper.js": "^1.14.1",
+      "ws": "^5.0.0"
+   }
+}
