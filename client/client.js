@@ -28,6 +28,12 @@ var name;
 
 // The actual connections that are running
 var connections = [];
+// Formato do conteudo
+// {
+// name: user,
+// connection: connection,
+// channel: dataChannel
+// };
 
 // Username of the available peers provided by the signaling server
 var availablePeers = [];
@@ -61,7 +67,7 @@ conn.onmessage = function (msg) {
             handleCandidate(data.candidate, data.name);
             break;
         case "leave":
-            handleLeave();
+            handleLeave(data.name);
             break;
         case "hello":
             console.log(data.msg);
@@ -93,7 +99,6 @@ function send(message, user) {
     conn.send(JSON.stringify(message));
 };
 
-
 function handleLogin(success, peers) {
 
     if (success === false) {
@@ -112,29 +117,46 @@ function handleLogin(success, peers) {
 
         if(availablePeers.length > 0) {
             var num = Math.floor((Math.random() * availablePeers.length));
-            newConnection(availablePeers[num]);
+            newConnection(availablePeers[num], true);
         }
     }
 };
 
-//initiating a call
-function newConnection(user) {
+// Initiating a call
+function newConnection(user, offer) {
     if (user.length > 0) {
+        console.log("Starting connection with " + user);
         var dataChannel;
 
         var yourConn = new webkitRTCPeerConnection(configuration, null) || new mozRTCPeerConnection(configuration, null) || new RTCPeerConnection(configuration, null);
 
+        var con = {
+            name: user,
+            connection: yourConn,
+            channel: null
+        };
+
+        connections.push(con);
+
+        var conObj;
+        for(i = 0; i < connections.length; i++) {
+            if(connections[i].name == user) {
+                conObj = connections[i].connection;
+                break;
+            }
+        }
+
         // Setup ice handling
-        yourConn.onicecandidate = function (event) {
+        conObj.onicecandidate = function (event) {
             if (event.candidate) {
                 send({
                     type: "candidate",
                     candidate: event.candidate
-                }, name);
+                }, user);
             }
         };
 
-        yourConn.ondatachannel = function(ev) {
+        conObj.ondatachannel = function(ev) {
             console.log('Data channel is created!');
             ev.channel.onopen = function() {
                 console.log('Data channel is open and ready to be used.');
@@ -147,100 +169,69 @@ function newConnection(user) {
             };
 
             ev.channel.onmessage = function (event) {
+                console.log("Got message from peer!");
                 chatArea.innerHTML += event.data + "\n";
             };
 
             ev.channel.onclose = function () {
-                console.log("data channel is closed");
+                console.log("Data channel is closed!");
             };
 
             ev.channel.onerror = function(error) {
                 console.log(error);
             }
         }
-        if(yourConn) {
+        if(conObj) {
             console.log("RTC connection created!");
         }
 
-        //creating data channel
-
-        dataChannel = yourConn.createDataChannel("channel1", {ordered:false});
-
-        dataChannel.onopen = function(event) {
-            console.log("Data channel is open");
-        };
-
-        dataChannel.onerror = function (error) {
-            console.log("Ooops...error:", error);
-        };
-
-        //when we receive a message from the other peer, display it on the screen
-        dataChannel.onmessage = function (event) {
-            chatArea.innerHTML += event.data + "\n";
-        };
-
-        dataChannel.onclose = function () {
-            console.log("Data channel is closed");
-        };
-
-        if(dataChannel) {
-            console.log("Data channel created!");
+        if(offer==true) {
+            conObj.createDataChannel("channel1", {ordered:false});
+            console.log("Sending offer to " + user + "!");
+            // create an offer
+            conObj.createOffer(function (offer) {
+                send({
+                    type: "offer",
+                    offer: offer
+                }, user);
+                conObj.setLocalDescription(offer);
+            }, function (error) {
+                alert("Error when creating an offer");
+            });
         }
 
-        console.log("Sending offer!");
-
-        // create an offer
-        yourConn.createOffer(function (offer) {
-            send({
-                type: "offer",
-                offer: offer
-            }, name);
-            yourConn.setLocalDescription(offer);
-        }, function (error) {
-            alert("Error when creating an offer");
-        });
-
-        var con = {
-            name: user,
-            connection: yourConn,
-            channel: dataChannel
-        };
-
-        connections.push(con);
 
     }
 }
 
-//when somebody sends us an offer
+// When somebody sends us an offer
 function handleOffer(offer, user) {
     var conObj = null;
 
-    for(i = 0; i < connections.length; i++) {
-        if(user==connections[i].name) {
-            conObj = connections[i];
-            break;
-        }
-    }
-
-    if(conObj) {
-        if(conObj.connection.signalingState == "closed") {
-            newConnection(user);
-        }
-        conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
-
-        //create an answer to an offer
-        conObj.connection.createAnswer(function (answer) {
-            conObj.connection.setLocalDescription(answer);
-            send({
-                type: "answer",
-                answer: answer
-            }, name);
-        }, function (error) {
-            alert("Error when creating an answer");
-        });
-    }
-    else {
-        newConnection(user);
+    // for(i = 0; i < connections.length; i++) {
+    //     if(user==connections[i].name) {
+    //         conObj = connections[i];
+    //         break;
+    //     }
+    // }
+    //
+    // if(conObj) {
+    //     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
+    //
+    //     //create an answer to an offer
+    //     console.log("Sending answer to " + conObj.name);
+    //     conObj.connection.createAnswer(function (answer) {
+    //         conObj.connection.setLocalDescription(answer);
+    //         send({
+    //             type: "answer",
+    //             answer: answer
+    //         }, conObj.name);
+    //     }, function (error) {
+    //         alert("Error when creating an answer");
+    //     });
+    // }
+    // else {
+        newConnection(user, false);
 
         for(i = 0; i < connections.length; i++) {
             if(user==connections[i].name) {
@@ -252,20 +243,21 @@ function handleOffer(offer, user) {
         conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
         //create an answer to an offer
+        console.log("Sending answer to " + conObj.name);
         conObj.connection.createAnswer(function (answer) {
             conObj.connection.setLocalDescription(answer);
             send({
                 type: "answer",
                 answer: answer
-            }, name);
+            }, conObj.name);
         }, function (error) {
             alert("Error when creating an answer");
         });
 
-    }
+    // }
 };
 
-//when we got an answer from a remote user
+// When we got an answer from a remote user
 function handleAnswer(answer, user) {
     var conObj = null;
 
@@ -277,10 +269,13 @@ function handleAnswer(answer, user) {
     }
     if(conObj) {
         conObj.connection.setRemoteDescription(new RTCSessionDescription(answer));
+        if(conObj.channel == null) {
+            conObj.connection.createDataChannel("channel1", {ordered:false});
+        }
     }
 };
 
-//when we got an ice candidate from a remote user
+// When we got an ice candidate from a remote user
 function handleCandidate(candidate, user) {
     var conObj = null;
 
@@ -296,11 +291,25 @@ function handleCandidate(candidate, user) {
     }
 };
 
+// When a user leaves
 function handleLeave(user) {
-    removeUser(user);
+    console.log("User " + user + " disconnected!");
+    for(i = 0; i < connections.length; i++) {
+        if(connections[i].name == user) {
+            connections[i].connection.close();
+            break;
+        }
+    }
+    connections.splice(i,1);
+    for(i = 0; i < availablePeers.length; i++) {
+        if(availablePeers[i] == user) {
+            break;
+        }
+    }
+    availablePeers.splice(i,1);
 };
 
-//when user clicks the "send message" button
+// When user clicks the "send message" button
 sendMsgBtn.addEventListener("click", function (event) {
     var val = msgInput.value;
     chatArea.innerHTML += name + ": " + val + "\n";

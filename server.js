@@ -40,12 +40,15 @@ function getConUser(name) {
 
 function removeUser(name) {
     var len = conUsers.length;
+    var user = "";
     for(i = 0; i < len; i++) {
         if(name==conUsers[i].name) {
+            user = conUsers[i].name;
             break;
         }
     }
     conUsers.splice(i,1);
+    return user;
 }
 
 //when a user connects to our sever
@@ -85,7 +88,7 @@ wss.on('connection', function(connection) {
                         name: data.name,
                         con: connection
                     };
-
+                    connection.name = data.name;
                     conUsers.push(temp);
 
                     var us = getUsersString();
@@ -99,31 +102,33 @@ wss.on('connection', function(connection) {
 
             case "offer":
                 //for ex. UserA wants to call UserB
-                console.log("Sending offer to: ", data.name);
+
 
                 //if UserB exists then send him offer details
                 var usrObj = getConUser(data.name);
 
                 if(usrObj != null) {
                     //setting that UserA connected with UserB
-
+                    console.log("Sending offer to: ", usrObj.name);
                     sendTo(usrObj.con, {
                         type: "offer",
                         offer: data.offer,
-                        name: usrObj.name
+                        name: connection.name
                     });
                 }
                 break;
 
             case "answer":
-                console.log("Sending answer to: ", data.name);
+
                 //for ex. UserB answers UserA
                 var usrObj = getConUser(data.name);
 
                 if(usrObj.con != null) {
+                    console.log("Sending answer to: ", usrObj.name);
                     sendTo(usrObj.con, {
                         type: "answer",
-                        answer: data.answer
+                        answer: data.answer,
+                        name: connection.name
                     });
                 }
                 break;
@@ -135,7 +140,8 @@ wss.on('connection', function(connection) {
                 if(usrObj.con != null) {
                     sendTo(usrObj.con, {
                         type: "candidate",
-                        candidate: data.candidate
+                        candidate: data.candidate,
+                        name: connection.name
                     });
                 }
                 break;
@@ -168,14 +174,15 @@ wss.on('connection', function(connection) {
    connection.on("close", function() {
 
         if(connection) {
+            var user = connection.name;
             removeUser(connection.name);
-            console.log("Disconnecting other peers!");
+            console.log("Disconnecting other peers from " + connection.name + "!");
 
             for(i = 0; i < conUsers.length; i++) {
                 if(conUsers[i].con != null) {
                     sendTo(conUsers[i].con, {
                         type: "leave",
-                        name: data.name
+                        name: user
                     });
                 }
             }
