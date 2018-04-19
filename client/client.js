@@ -122,7 +122,7 @@ function handleLogin(success, peers) {
     }
 };
 
-// Initiating a call
+// Initiating a connection
 function newConnection(user, offer) {
     if (user.length > 0) {
         console.log("Starting connection with " + user);
@@ -141,13 +141,13 @@ function newConnection(user, offer) {
         var conObj;
         for(i = 0; i < connections.length; i++) {
             if(connections[i].name == user) {
-                conObj = connections[i].connection;
+                conObj = connections[i];
                 break;
             }
         }
 
         // Setup ice handling
-        conObj.onicecandidate = function (event) {
+        conObj.connection.onicecandidate = function (event) {
             if (event.candidate) {
                 send({
                     type: "candidate",
@@ -156,7 +156,7 @@ function newConnection(user, offer) {
             }
         };
 
-        conObj.ondatachannel = function(ev) {
+        conObj.connection.ondatachannel = function(ev) {
             console.log('Data channel is created!');
             ev.channel.onopen = function() {
                 console.log('Data channel is open and ready to be used.');
@@ -181,80 +181,86 @@ function newConnection(user, offer) {
                 console.log(error);
             }
         }
-        if(conObj) {
+        if(conObj.connection) {
             console.log("RTC connection created!");
         }
 
+        // Se vai enviar offer
         if(offer==true) {
-            conObj.createDataChannel("channel1", {ordered:false});
+            // Creating dataChannel
+            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
+            conObj.channel.onmessage = function (event) {
+                console.log("Got message from peer!");
+                chatArea.innerHTML += event.data + "\n";
+            };
+
+            conObj.channel.onclose = function () {
+                console.log("Data channel is closed!");
+            };
+
+            conObj.channel.onerror = function(error) {
+                console.log(error);
+            }
+
             console.log("Sending offer to " + user + "!");
             // create an offer
-            conObj.createOffer(function (offer) {
+            conObj.connection.createOffer(function (offer) {
                 send({
                     type: "offer",
                     offer: offer
                 }, user);
-                conObj.setLocalDescription(offer);
+                conObj.connection.setLocalDescription(offer);
             }, function (error) {
                 alert("Error when creating an offer");
             });
         }
 
-
     }
 }
 
 // When somebody sends us an offer
+// This indicates that he wants to make a connection
 function handleOffer(offer, user) {
     var conObj = null;
 
-    // for(i = 0; i < connections.length; i++) {
-    //     if(user==connections[i].name) {
-    //         conObj = connections[i];
-    //         break;
-    //     }
-    // }
-    //
-    // if(conObj) {
-    //     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
-    //
-    //     //create an answer to an offer
-    //     console.log("Sending answer to " + conObj.name);
-    //     conObj.connection.createAnswer(function (answer) {
-    //         conObj.connection.setLocalDescription(answer);
-    //         send({
-    //             type: "answer",
-    //             answer: answer
-    //         }, conObj.name);
-    //     }, function (error) {
-    //         alert("Error when creating an answer");
-    //     });
-    // }
-    // else {
-        newConnection(user, false);
+    newConnection(user, false);
 
-        for(i = 0; i < connections.length; i++) {
-            if(user==connections[i].name) {
-                conObj = connections[i];
-                break;
-            }
+    for(i = 0; i < connections.length; i++) {
+        if(user==connections[i].name) {
+            conObj = connections[i];
+            break;
         }
+    }
 
-        conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
+    conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
-        //create an answer to an offer
-        console.log("Sending answer to " + conObj.name);
-        conObj.connection.createAnswer(function (answer) {
-            conObj.connection.setLocalDescription(answer);
-            send({
-                type: "answer",
-                answer: answer
-            }, conObj.name);
-        }, function (error) {
-            alert("Error when creating an answer");
-        });
+    // Creating dataChannel
+    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
+    conObj.channel.onmessage = function (event) {
+        console.log("Got message from peer!");
+        chatArea.innerHTML += event.data + "\n";
+    };
 
-    // }
+    conObj.channel.onclose = function () {
+        console.log("Data channel is closed!");
+    };
+
+    conObj.channel.onerror = function(error) {
+        console.log(error);
+    }
+
+    //create an answer to an offer
+    console.log("Sending answer to " + conObj.name);
+    conObj.connection.createAnswer(function (answer) {
+        conObj.connection.setLocalDescription(answer);
+        send({
+            type: "answer",
+            answer: answer
+        }, conObj.name);
+    }, function (error) {
+        alert("Error when creating an answer");
+    });
+
 };
 
 // When we got an answer from a remote user
@@ -269,9 +275,6 @@ function handleAnswer(answer, user) {
     }
     if(conObj) {
         conObj.connection.setRemoteDescription(new RTCSessionDescription(answer));
-        if(conObj.channel == null) {
-            conObj.connection.createDataChannel("channel1", {ordered:false});
-        }
     }
 };
 
