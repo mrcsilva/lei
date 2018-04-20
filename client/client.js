@@ -15,8 +15,31 @@ var msgInput = document.querySelector('#msgInput');
 var sendMsgBtn = document.querySelector('#sendMsgBtn');
 
 var chatArea = document.querySelector('#chatarea textarea');
+var displayName = document.querySelector('.displayName');
+var showName = document.querySelector('.displayName .name');
+var showCons = document.querySelector('.conPeers');
+var showReach = document.querySelector('.reachPeers');
 
 callPage.style.display = "none";
+
+// ******
+// Webpage dynamics
+// ******
+
+function showConnection(user) {
+    if(showCons.innerHTML.length == 0) {
+        showCons.innerHTML = "Connected Peers: "+user;
+    }
+    else {
+        showCons.innerHTML += ", "+user;
+    }
+}
+
+function removeConnectionDisplay(user) {
+
+
+
+}
 
 
 // ******
@@ -34,6 +57,14 @@ var connections = [];
 // connection: connection,
 // channel: dataChannel
 // };
+
+// Neighbours are the reachable peers from our connection
+var neighbours = [];
+// Format of content
+// {
+// peer: String,
+// neighbour: String
+// }
 
 // Username of the available peers provided by the signaling server
 var availablePeers = [];
@@ -107,6 +138,8 @@ function handleLogin(success, peers) {
     else {
         loginPage.style.display = "none";
         callPage.style.display = "block";
+        document.querySelector('.loginPage').style.marginBottom = 0;
+        showName.innerHTML += name;
 
         var us = peers.split(";");
         for(i = 0; i < us.length-1; i++) {
@@ -163,6 +196,7 @@ function newConnection(user, offer) {
                 for(i = 0; i < connections.length; i++) {
                     if(user==connections[i].name) {
                         connections[i].channel = ev.channel;
+                        showConnection(user);
                         break;
                     }
                 }
@@ -310,6 +344,7 @@ function handleLeave(user) {
         }
     }
     availablePeers.splice(i,1);
+    removeConnectionDisplay(user);
 };
 
 // When user clicks the "send message" button

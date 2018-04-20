@@ -13,6 +13,7 @@ h1, h2, h3, h4, h5 {
     margin: 0;
 }
 
+/* Creates the 3 dot animation */
 .wait:after {
   content: ' .';
   animation: dots 1.5s steps(5, end) infinite;
@@ -42,6 +43,9 @@ h1, h2, h3, h4, h5 {
       .5em 0 0 black;
   }
 }
+
+/* END */
+
 
 textarea {
     resize: none;
