@@ -2,8 +2,9 @@
 
    <head>
       <title>Exemplo WebRTC</title>
-      <link rel = "stylesheet" href = "node_modules/bootstrap/dist/css/bootstrap.min.css"/>
+      <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css"/>
       <link rel="stylesheet" href="css/styles.css">
+      <meta charset="UTF-8">
    </head>
 
    <style>
@@ -14,9 +15,9 @@
 
    <body>
         <div class="container loginPage" style="margin-bottom: 80px;">
-            <div id = "loginPage" class = "container text-center">
-                <div class = "row">
-                    <div class = "col-md-12">
+            <div id="loginPage" class="container text-center">
+                <div class="row">
+                    <div class="col-md-12">
                         <div style="margin: 25% 35%; font-size: 2.5rem;">
                             <h1>Connecting <span class="wait"></span></h1>
 
@@ -26,48 +27,43 @@
             </div>
         </div>
 
-        <div id = "callPage" class = "call-page container">
+        <div id="callPage" class="call-page container">
             <div class="displayName">
                 <div class="row">
                     <div class="col-md-12">
                         <h2 class="name">Name: </h2>
                     </div>
                     <div class="col-md-12">
-                        <h3 class="conPeers">Connected Peers: </h3>
+                        <h3 class="conPeers"></h3>
                     </div>
                     <div class="col-md-12">
                         <h3 class="reachPeers">Reachable Peers: </h3>
                     </div>
                 </div>
             </div>
-            <div class = "row">
-                <div class = "col-md-12 text-center">
-                    <div class = "panel panel-primary"  style="margin-bottom: 50px;">
-                        <div class = "panel-heading">Text chat</div>
-                        <div id = "chatarea" class = "panel-body text-left">
-                            <textarea name="chat" disabled></textarea>
+            <div class="row">
+                <div class="col-md-12 text-center">
+                    <div class="panel panel-primary"  style="margin-bottom: 50px;">
+                        <div class="panel-heading">Text chat</div>
+                        <div id="chatarea" class="panel-body text-left">
+                            <textarea class="chat form-control" name="chat" disabled ></textarea>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class = "row text-center form-group">
-                <div class = "col-md-12">
-                    <input id = "callToUsernameInput" type = "text" placeholder = "username to call" />
-                    <button id = "callBtn" class = "btn-success btn">Call</button>
-                    <button id = "hangUpBtn" class = "btn-danger btn">Hang Up</button>
-                </div>
-            </div>
+            <div class="row text-center">
+                <div class="col-md-12">
+                    <div class="message">
+                        <textarea id="msgInput" type="text" placeholder="Message" rows="1" class="form-control"></textarea>
+                        <button id="sendMsgBtn" class="btn-success btn">Send</button>
+                    </div>
 
-            <div class = "row text-center">
-                <div class = "col-md-12">
-                    <input id = "msgInput" type = "text" placeholder = "message" />
-                    <button id = "sendMsgBtn" class = "btn-success btn">Send</button>
                 </div>
             </div>
         </div>
         <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
-        <script src = "client.js"></script>
+        <script src="client.js"></script>
         <script type="text/javascript">
 
             function guid() {
@@ -78,7 +74,7 @@
             }
 
             $(document).ready(function() {
-                name = guid();
+                name=guid();
                 setTimeout(function () {
                     if (name.length > 0) {
                        send({
@@ -89,11 +85,6 @@
                 }, 2000);
 
             });
-
-
-
         </script>
-
    </body>
-
 </html>

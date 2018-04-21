@@ -61,6 +61,16 @@ textarea {
     margin: 0px 20px;
 }
 
+.message {
+    max-width: 65%;
+    margin: auto;
+    display: flex;
+}
+
+#msgInput {
+    width: 100%;
+}
+
 #chatarea {
     height: 25%;
     width: 65%;

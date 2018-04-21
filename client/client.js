@@ -1,6 +1,6 @@
-//******
+//******************
 //UI selectors block
-//******
+//******************
 
 var loginPage = document.querySelector('#loginPage');
 var usernameInput = document.querySelector('#usernameInput');
@@ -11,7 +11,7 @@ var callToUsernameInput = document.querySelector('#callToUsernameInput');
 var callBtn = document.querySelector('#callBtn');
 
 var hangUpBtn = document.querySelector('#hangUpBtn');
-var msgInput = document.querySelector('#msgInput');
+var msgInput = $('#msgInput');
 var sendMsgBtn = document.querySelector('#sendMsgBtn');
 
 var chatArea = document.querySelector('#chatarea textarea');
@@ -22,29 +22,80 @@ var showReach = document.querySelector('.reachPeers');
 
 callPage.style.display = "none";
 
-// ******
+// ****************
 // Webpage dynamics
-// ******
+// ****************
 
-function showConnection(user) {
-    if(showCons.innerHTML.length == 0) {
-        showCons.innerHTML = "Connected Peers: "+user;
+var isShift = false;
+
+function showConnections() {
+    showCons.innerHTML = "Connected Peers: ";
+    if(connections.length > 0) {
+        for(i = 0; i < connections.length-1; i++) {
+            showCons.innerHTML += connections[i].name+", ";
+        }
+        showCons.innerHTML += connections[connections.length-1].name;
     }
     else {
-        showCons.innerHTML += ", "+user;
+        showCons.innerHTML += "No connected peers!";
     }
 }
 
-function removeConnectionDisplay(user) {
-
-
-
+function showNeighbours() {
+    showReach.innerHTML = "Reachable Peers: ";
+    if(neighbours.length > 0) {
+        for(i = 0; i < neighbours.length-1; i++) {
+            showCons.innerHTML += neighbours[i]+", ";
+        }
+        showCons.innerHTML += neighbours[connections.length-1];
+    }
+    else {
+        showReach.innerHTML += "Connected peers doesn't have relevant neighbours";
+    }
 }
+
+// When user clicks the "send message" button
+sendMsgBtn.addEventListener("click", function (event) {
+    var val = msgInput.val();
+    chatArea.innerHTML += name + ": " + val + "\n";
+    $('.chat').scrollTop($('.chat')[0].scrollHeight);
+    //sending a message to a connected peer
+    for(i = 0; i < connections.length; i++) {
+        connections[i].channel.send(name + ": " + val);
+    }
+    msgInput.val('');
+});
+
+// When user clicks Enter send a message
+// When it clicks Shift+Enter don't send and a new line is inserted
+$(document).keyup(function (e) {
+    if(e.which == 13 && isShift == false) {
+        msgInput.val('');
+    }
+    if(e.which == 16) {
+        isShift = false;
+    }
+}).keydown(function (e) {
+    if(e.which == 16) isShift = true;
+    if(e.which == 13 && isShift == false) {
+        var val = msgInput.val();
+        chatArea.innerHTML += name + ": " + val + "\n";
+        $('.chat').scrollTop($('.chat')[0].scrollHeight);
+        //sending a message to a connected peer
+        for(i = 0; i < connections.length; i++) {
+            connections[i].channel.send(name + ": " + val);
+        }
+        msgInput.val('');
+    }
+});
 
 
 // ******
 // WebRTC
 // ******
+
+// A IMPLEMENTAR!!!!!!!!
+// - Quando um cliente perde a unica conexao que tem, tentar uma nova
 
 // Our username
 var name;
@@ -59,7 +110,7 @@ var connections = [];
 // };
 
 // Neighbours are the reachable peers from our connection
-var neighbours = [];
+var neighbours = new Map();
 // Format of content
 // {
 // peer: String,
@@ -103,6 +154,9 @@ conn.onmessage = function (msg) {
         case "hello":
             console.log(data.msg);
             break;
+        case "neighbours":
+            handleNeighbours(data.msg, data.name);
+            break;
         default:
             break;
    }
@@ -115,7 +169,7 @@ conn.onerror = function (err) {
 // Configuration for RTCPeerConnection using Google's public STUN server
 var configuration = {
    "iceServers": [
-        { "url": "stun:stun.l.google.com:19302" }
+        { "urls": "stun:stun.l.google.com:19302" }
     ]
 };
 
@@ -141,6 +195,9 @@ function handleLogin(success, peers) {
         document.querySelector('.loginPage').style.marginBottom = 0;
         showName.innerHTML += name;
 
+        showConnections();
+        showNeighbours();
+
         var us = peers.split(";");
         for(i = 0; i < us.length-1; i++) {
             if(availablePeers.indexOf(us[i]) == -1 && us[i] != name) {
@@ -161,7 +218,8 @@ function newConnection(user, offer) {
         console.log("Starting connection with " + user);
         var dataChannel;
 
-        var yourConn = new webkitRTCPeerConnection(configuration, null) || new mozRTCPeerConnection(configuration, null) || new RTCPeerConnection(configuration, null);
+
+        var yourConn = new RTCPeerConnection(configuration, null);
 
         var con = {
             name: user,
@@ -196,7 +254,7 @@ function newConnection(user, offer) {
                 for(i = 0; i < connections.length; i++) {
                     if(user==connections[i].name) {
                         connections[i].channel = ev.channel;
-                        showConnection(user);
+                        showConnections();
                         break;
                     }
                 }
@@ -205,6 +263,7 @@ function newConnection(user, offer) {
             ev.channel.onmessage = function (event) {
                 console.log("Got message from peer!");
                 chatArea.innerHTML += event.data + "\n";
+                $('.chat').scrollTop($('.chat')[0].scrollHeight);
             };
 
             ev.channel.onclose = function () {
@@ -226,6 +285,7 @@ function newConnection(user, offer) {
             conObj.channel.onmessage = function (event) {
                 console.log("Got message from peer!");
                 chatArea.innerHTML += event.data + "\n";
+                $('.chat').scrollTop($('.chat')[0].scrollHeight);
             };
 
             conObj.channel.onclose = function () {
@@ -273,6 +333,7 @@ function handleOffer(offer, user) {
     conObj.channel.onmessage = function (event) {
         console.log("Got message from peer!");
         chatArea.innerHTML += event.data + "\n";
+        $('.chat').scrollTop($('.chat')[0].scrollHeight);
     };
 
     conObj.channel.onclose = function () {
@@ -344,17 +405,13 @@ function handleLeave(user) {
         }
     }
     availablePeers.splice(i,1);
-    removeConnectionDisplay(user);
+    showConnections();
 };
 
-// When user clicks the "send message" button
-sendMsgBtn.addEventListener("click", function (event) {
-    var val = msgInput.value;
-    chatArea.innerHTML += name + ": " + val + "\n";
-    $('#chatarea textarea').scrollTop($('#chatarea textarea')[0].scrollHeight);
-    //sending a message to a connected peer
-    for(i = 0; i < connections.length; i++) {
-        connections[i].channel.send(name + ": " + val);
+// When someone sends us neighbours
+function handleNeighbours(msg, user) {
+    for(i = 0; i < msg.length; i++) {
+        neighbours.set(msg[i], user);
     }
-    msgInput.value = "";
-});
+    showNeighbours();
+}
