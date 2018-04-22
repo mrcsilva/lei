@@ -14,7 +14,7 @@ var hangUpBtn = document.querySelector('#hangUpBtn');
 var msgInput = $('#msgInput');
 var sendMsgBtn = document.querySelector('#sendMsgBtn');
 
-var chatArea = document.querySelector('#chatarea textarea');
+var chatArea = document.querySelector('#chatarea .chat');
 var displayName = document.querySelector('.displayName');
 var showName = document.querySelector('.displayName .name');
 var showCons = document.querySelector('.conPeers');
@@ -43,11 +43,8 @@ function showConnections() {
 
 function showNeighbours() {
     showReach.innerHTML = "Reachable Peers: ";
-    if(neighbours.length > 0) {
-        for(i = 0; i < neighbours.length-1; i++) {
-            showCons.innerHTML += neighbours[i]+", ";
-        }
-        showCons.innerHTML += neighbours[connections.length-1];
+    if(reachable.size > 0) {
+        showReach.innerHTML += Array.from(reachable.keys()).join(", ");
     }
     else {
         showReach.innerHTML += "Connected peers doesn't have relevant neighbours";
@@ -57,17 +54,23 @@ function showNeighbours() {
 // When user clicks the "send message" button
 sendMsgBtn.addEventListener("click", function (event) {
     var val = msgInput.val();
-    chatArea.innerHTML += name + ": " + val + "\n";
+    chatArea.innerHTML += name + ": " + val + "<br>";
     $('.chat').scrollTop($('.chat')[0].scrollHeight);
-    //sending a message to a connected peer
+
+    var obj = {
+        type: "msg",
+        user: name,
+        message: val
+    };
+
+    //sending a message to the connected peers
     for(i = 0; i < connections.length; i++) {
-        connections[i].channel.send(name + ": " + val);
+        connections[i].channel.send(JSON.stringify(obj));
     }
     msgInput.val('');
 });
 
 // When user clicks Enter send a message
-// When it clicks Shift+Enter don't send and a new line is inserted
 $(document).keyup(function (e) {
     if(e.which == 13 && isShift == false) {
         msgInput.val('');
@@ -79,13 +82,20 @@ $(document).keyup(function (e) {
     if(e.which == 16) isShift = true;
     if(e.which == 13 && isShift == false) {
         var val = msgInput.val();
-        chatArea.innerHTML += name + ": " + val + "\n";
-        $('.chat').scrollTop($('.chat')[0].scrollHeight);
-        //sending a message to a connected peer
-        for(i = 0; i < connections.length; i++) {
-            connections[i].channel.send(name + ": " + val);
+        if(val.length > 0) {
+            chatArea.innerHTML += name + ": " + val + "<br>";
+            $('.chat').scrollTop($('.chat')[0].scrollHeight);
+            var obj = {
+                type: "msg",
+                user: name,
+                message: val
+            };
+            //sending a message to a connected peer
+            for(i = 0; i < connections.length; i++) {
+                connections[i].channel.send(JSON.stringify(obj));
+            }
+            msgInput.val('');
         }
-        msgInput.val('');
     }
 });
 
@@ -96,26 +106,29 @@ $(document).keyup(function (e) {
 
 // A IMPLEMENTAR!!!!!!!!
 // - Quando um cliente perde a unica conexao que tem, tentar uma nova
+// - Forma de comunicacao com um peer a mais de "dois saltos"
 
 // Our username
 var name;
 
+// Possible names as an alias for the browser
+var names = ["Nicolas", "Violet", "Calvin", "Autumn", "Briley", "Kelvin", "Oswaldo", "Remington", "Danielle", "Ross"];
+
 // The actual connections that are running
-var connections = [];
 // Formato do conteudo
 // {
 // name: user,
 // connection: connection,
 // channel: dataChannel
-// };
-
-// Neighbours are the reachable peers from our connection
-var neighbours = new Map();
-// Format of content
-// {
-// peer: String,
-// neighbour: String
 // }
+var connections = [];
+
+
+// Reachable peers from our connections
+// Key - Peer
+// Value - Neighbour
+var reachable = new Map();
+
 
 // Username of the available peers provided by the signaling server
 var availablePeers = [];
@@ -155,7 +168,7 @@ conn.onmessage = function (msg) {
             console.log(data.msg);
             break;
         case "neighbours":
-            handleNeighbours(data.msg, data.name);
+            handleNeighbours(data.neighbours, data.name);
             break;
         default:
             break;
@@ -173,7 +186,32 @@ var configuration = {
     ]
 };
 
-// Alias for sending JSON encoded messages
+function handleClientMessage(event) {
+    console.log("Got message from peer!");
+    var data = JSON.parse(event.data);
+    if(data.type == "msg") {
+        chatArea.innerHTML += data.user + ": " + data.message + "<br>";
+        $('.chat').scrollTop($('.chat')[0].scrollHeight);
+    }
+    else if (data.type == "neighbours") {
+        for(i = 0; i < data.message.length; i++) {
+            if(data.message[i] != name && !reachable.has(data.message[i])) {
+                reachable.set(data.message[i], data.user);
+            }
+        }
+        showNeighbours();
+    }
+}
+
+function handleChannelClose() {
+    console.log("Data channel is closed!");
+}
+
+function handleChannelError(error) {
+    console.log(error);
+}
+
+// Alias for sending JSON encoded messages to signaling server
 function send(message, user) {
 
     // Attach the other peer username to our messages
@@ -184,10 +222,15 @@ function send(message, user) {
     conn.send(JSON.stringify(message));
 };
 
+// Handle response from signaling server concerning ID registration
 function handleLogin(success, peers) {
 
     if (success === false) {
-        alert("Ooops...try a different username");
+        name = names[Math.floor(Math.random()*names.length)];
+        send({
+           type: "login",
+           name: name
+        });
     }
     else {
         loginPage.style.display = "none";
@@ -258,21 +301,23 @@ function newConnection(user, offer) {
                         break;
                     }
                 }
+                console.log("Sending list of connected peers!");
+                var list = [];
+                for(i = 0; i < connections.length; i++) {
+                    list.push(connections[i].name);
+                }
+                var obj = {
+                    type: "neighbours",
+                    user: name,
+                    message: list
+                };
+                for(i = 0; i < connections.length; i++) {
+                    connections[i].channel.send(JSON.stringify(obj));
+                }
             };
-
-            ev.channel.onmessage = function (event) {
-                console.log("Got message from peer!");
-                chatArea.innerHTML += event.data + "\n";
-                $('.chat').scrollTop($('.chat')[0].scrollHeight);
-            };
-
-            ev.channel.onclose = function () {
-                console.log("Data channel is closed!");
-            };
-
-            ev.channel.onerror = function(error) {
-                console.log(error);
-            }
+            ev.channel.onmessage = handleClientMessage;
+            ev.channel.onclose = handleChannelClose;
+            ev.channel.onerror = handleChannelError;
         }
         if(conObj.connection) {
             console.log("RTC connection created!");
@@ -282,21 +327,11 @@ function newConnection(user, offer) {
         if(offer==true) {
             // Creating dataChannel
             conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
-            conObj.channel.onmessage = function (event) {
-                console.log("Got message from peer!");
-                chatArea.innerHTML += event.data + "\n";
-                $('.chat').scrollTop($('.chat')[0].scrollHeight);
-            };
 
-            conObj.channel.onclose = function () {
-                console.log("Data channel is closed!");
-            };
+            conObj.channel.onmessage = handleClientMessage;
+            conObj.channel.onclose = handleChannelClose;
+            conObj.channel.onerror = handleChannelError;
 
-            conObj.channel.onerror = function(error) {
-                console.log(error);
-            }
-
-            console.log("Sending offer to " + user + "!");
             // create an offer
             conObj.connection.createOffer(function (offer) {
                 send({
@@ -330,19 +365,10 @@ function handleOffer(offer, user) {
 
     // Creating dataChannel
     conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
-    conObj.channel.onmessage = function (event) {
-        console.log("Got message from peer!");
-        chatArea.innerHTML += event.data + "\n";
-        $('.chat').scrollTop($('.chat')[0].scrollHeight);
-    };
 
-    conObj.channel.onclose = function () {
-        console.log("Data channel is closed!");
-    };
-
-    conObj.channel.onerror = function(error) {
-        console.log(error);
-    }
+    conObj.channel.onmessage = handleClientMessage;
+    conObj.channel.onclose = handleChannelClose;
+    conObj.channel.onerror = handleChannelError;
 
     //create an answer to an offer
     console.log("Sending answer to " + conObj.name);
@@ -406,12 +432,16 @@ function handleLeave(user) {
     }
     availablePeers.splice(i,1);
     showConnections();
+    if(reachable.has(user)) {
+        reachable.delete(user);
+    }
+    showNeighbours();
 };
 
 // When someone sends us neighbours
 function handleNeighbours(msg, user) {
     for(i = 0; i < msg.length; i++) {
-        neighbours.set(msg[i], user);
+        reachable.set(msg[i], user);
     }
     showNeighbours();
 }
