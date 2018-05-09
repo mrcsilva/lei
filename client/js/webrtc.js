@@ -108,7 +108,7 @@ function handleClientMessage(event) {
                 reachable.set(data.message[i], data.user);
             }
         }
-        reachable.dispatchEvent(changed);
+        showNeighbours(reachable);
     }
 }
 
@@ -147,8 +147,8 @@ function handleLogin(success, peers) {
         document.querySelector('.loginPage').style.marginBottom = 0;
         showName.innerHTML += name;
 
-        connections.dispatchEvent(changed);
-        reachable.dispatchEvent(changed);
+        showConnections(connections);
+        showNeighbours(reachable);
 
         var us = peers.split(";");
         for(i = 0; i < us.length-1; i++) {
@@ -200,7 +200,7 @@ function newConnection(user, offer) {
                 console.log('Data channel is open and ready to be used.');
                 if(connections.has(user)) {
                     connections.get(user).channel = ev.channel;
-                    connections.dispatchEvent(changed);
+                    showConnections(connections);
                 }
                 console.log("Sending list of connected peers!");
                 var list = [];
@@ -305,7 +305,9 @@ function handleCandidate(candidate, user) {
 function handleLeave(user) {
     console.log("User " + user + " disconnected!");
     // Remove user from connections
-    connections.get(user).close();
+    if(connections.has(user)) {
+        connections.get(user).connection.close();
+    }
     connections.delete(user);
 
     // Remove user from available peers
@@ -316,7 +318,7 @@ function handleLeave(user) {
     }
     availablePeers.splice(i,1);
 
-    connections.dispatchEvent(changed);
+    showConnections(connections);
 
     reachable.delete(user);
 
@@ -326,7 +328,7 @@ function handleLeave(user) {
         }
     }
 
-    reachable.dispatchEvent(changed);
+    showNeighbours(reachable);
 }
 
 // When someone sends us neighbours
@@ -334,5 +336,5 @@ function handleNeighbours(msg, user) {
     for(i = 0; i < msg.length; i++) {
         reachable.set(msg[i], user);
     }
-    reachable.dispatchEvent(changed);
+    showNeighbours(reachable);
 }

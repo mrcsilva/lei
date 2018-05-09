@@ -28,28 +28,18 @@ callPage.style.display = "none";
 
 var isShift = false;
 
-connections.addEventListener('changed', function(e) {
-    showConnections();
-});
-
-reachable.addEventListener('changed', function(e) {
-    showNeighbours();
-});
-
-function showConnections() {
+function showConnections(connections) {
+    connections = getConnections();
     showCons.innerHTML = "Connected Peers: ";
-    if(connections.length > 0) {
-        for(i = 0; i < connections.length-1; i++) {
-            showCons.innerHTML += connections[i].name+", ";
-        }
-        showCons.innerHTML += connections[connections.length-1].name;
+    if(connections.size > 0) {
+        showCons.innerHTML += Array.from(connections.keys()).join(", ");
     }
     else {
         showCons.innerHTML += "No connected peers!";
     }
 }
 
-function showNeighbours() {
+function showNeighbours(reachable) {
     showReach.innerHTML = "Reachable Peers: ";
     if(reachable.size > 0) {
         showReach.innerHTML += Array.from(reachable.keys()).join(", ");
