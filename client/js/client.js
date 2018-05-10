@@ -29,7 +29,6 @@ callPage.style.display = "none";
 var isShift = false;
 
 function showConnections(connections) {
-    connections = getConnections();
     showCons.innerHTML = "Connected Peers: ";
     if(connections.size > 0) {
         showCons.innerHTML += Array.from(connections.keys()).join(", ");

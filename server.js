@@ -1,12 +1,15 @@
-//require our websocket library
+// require our websocket library
 var WebSocketServer = require('ws').Server;
 
-//creating a websocket server at port 9090
+// creating a websocket server at port 9090
 var wss = new WebSocketServer({port: 9090});
 
-//all connected to the server users
+// all connected to the server users
 var conUsers = [];
 
+// Verify if a username is available
+// 1 if unavailable
+// 0 if available
 function logged(name) {
     var len = conUsers.length;
     for(i = 0; i < len; i++) {
@@ -17,6 +20,7 @@ function logged(name) {
     return 0;
 }
 
+// Return connected users semicolon separated
 function getUsersString() {
     var result = "";
     var len = conUsers.length;
@@ -26,6 +30,7 @@ function getUsersString() {
     return result;
 }
 
+// Get connection to user
 function getConUser(name) {
     var conn = null;
     var len = conUsers.length;
@@ -38,6 +43,7 @@ function getConUser(name) {
     return conn;
 }
 
+// Remove connection to user
 function removeUser(name) {
     var len = conUsers.length;
     var user = "";
@@ -51,7 +57,7 @@ function removeUser(name) {
     return user;
 }
 
-//when a user connects to our sever
+// when a user connects to our sever
 wss.on('connection', function(connection) {
 
     console.log("User connected");
@@ -160,6 +166,14 @@ wss.on('connection', function(connection) {
                 }
                 break;
 
+            case "request_users":
+                var conUsers = getUsersString();
+                sendTo(connection, {
+                    type: "users",
+                    users: conUsers
+                });
+                break;
+
             default:
                 sendTo(connection, {
                     type: "error",
@@ -169,8 +183,8 @@ wss.on('connection', function(connection) {
         }
     });
 
-   //when user exits, for example closes a browser window
-   //this may help if we are still in "offer","answer" or "candidate" state
+   // when user exits, for example closes a browser window
+   // this may help if we are still in "offer","answer" or "candidate" state
    connection.on("close", function() {
 
         if(connection) {

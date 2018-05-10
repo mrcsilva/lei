@@ -32,7 +32,7 @@ var reachable = new Map();
 // Username of the available peers provided by the signaling server
 var availablePeers = [];
 
-var changed = new Event('changed');
+var moreOnServer = true;
 
 function getReachable() {
     return reachable;
@@ -42,6 +42,42 @@ function getConnections() {
     return connections;
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function keepConnections() {
+    while(true) {
+        if(connections.size < 2 && moreOnServer) {
+            if(availablePeers.length > 0) {
+                var list = [];
+                for(var v of availablePeers) {
+                    if(!connections.has(v) && !reachable.has(v)) {
+                        list.push(v);
+                    }
+                }
+                if(list.length != 0) {
+                    newConnection(list[Math.floor(Math.random() * Math.floor(list.length), true);
+                }
+                else {
+                    // Send request to server
+                    send({
+                        data: "request_users"
+                    }, name);
+                }
+            }
+            else {
+                // Send request to server
+                send({
+                    data: "request_users"
+                }, name);
+            }
+        }
+        else {
+            await sleep(60000);
+        }
+    }
+}
 
 // Connecting to our signaling server
 var conn = new WebSocket('ws://antenas.dynu.com:9090');
@@ -78,6 +114,9 @@ conn.onmessage = function (msg) {
             break;
         case "neighbours":
             handleNeighbours(data.neighbours, data.name);
+            break;
+        case "users":
+            handleUsers(data.users);
             break;
         default:
             break;
@@ -337,4 +376,14 @@ function handleNeighbours(msg, user) {
         reachable.set(msg[i], user);
     }
     showNeighbours(reachable);
+}
+
+// When server sends list of users
+function handleUsers(users) {
+    var us = users.split(";");
+    for(i = 0; i < us.length-1; i++) {
+        if(availablePeers.indexOf(us[i]) == -1 && us[i] != name) {
+            availablePeers.push(us[i]);
+        }
+    }
 }
