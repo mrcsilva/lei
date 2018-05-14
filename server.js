@@ -23,8 +23,7 @@ function logged(name) {
 // Return connected users semicolon separated
 function getUsersString() {
     var result = "";
-    var len = conUsers.length;
-    for(i = 0; i < len; i++) {
+    for(i = 0; i < conUsers.length; i++) {
         result += conUsers[i].name+";";
     }
     return result;
