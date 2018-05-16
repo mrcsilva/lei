@@ -6,13 +6,6 @@
       <link rel="stylesheet" href="css/styles.css">
       <meta charset="UTF-8">
    </head>
-
-   <style>
-      body {
-         padding-top: 2%;
-      }
-   </style>
-
    <body>
         <div class="container loginPage" style="margin-bottom: 80px;">
             <div id="loginPage" class="container text-center">
@@ -20,43 +13,34 @@
                     <div class="col-md-12">
                         <div style="margin: 25% 35%; font-size: 2.5rem;">
                             <h1>Connecting <span class="wait"></span></h1>
-
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="callPage" class="call-page container">
-            <div class="displayName">
-                <div class="row">
-                    <div class="col-md-12">
-                        <h2 class="name">Name: </h2>
+        <div id="callPage" class="call-page">
+            <div class="mainChat">
+                <div class="chatarea">
+                    <div class="header text-center">
+                        <a onClick="goBack()"><i class="arrow" title="arrow icon"></i></a>
+                        <div class="name">WebRTC Chat</div>
                     </div>
-                    <div class="col-md-12">
-                        <h3 class="conPeers"></h3>
-                    </div>
-                    <div class="col-md-12">
-                        <h3 class="reachPeers">Reachable Peers: </h3>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-12 text-center">
-                    <div class="panel panel-primary"  style="margin-bottom: 50px;">
-                        <h2>Text Chat</h2>
-                        <div id="chatarea" class="panel-body text-left">
-                            <div class="chat form-control">
+                    <div id="chatarea" class="">
+                        <div class="chat">
 
-                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-12">
-                    <div class="message">
+                <div class="input">
+                    <div class="message-input">
                         <input id="msgInput" type="text" placeholder="Message" rows="1" class="form-control"></input>
-                        <button id="sendMsgBtn" class="btn-success btn">Send</button>
+                        <button id="sendMsgBtn" class="btn-success btn" name="broadcast">Send</button>
                     </div>
+                </div>
+            </div>
+            <div class="users">
+                <div class="col-md-12 peers">
                 </div>
             </div>
         </div>

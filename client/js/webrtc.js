@@ -2,10 +2,6 @@
 // WebRTC
 // ******
 
-// A IMPLEMENTAR!!!!!!!!
-// - Quando um cliente perde a unica conexao que tem, tentar uma nova
-// - Forma de comunicacao com um peer a mais de "dois saltos"
-
 // Our username
 var name;
 
@@ -43,13 +39,20 @@ messages.set("broadcast", []);
 // Still more peers available on server
 var moreOnServer = true;
 
+// Indicates if the user is logged
+var logged = false;
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function keepConnections() {
+    var sleeps = 0;
+    await sleep(1000);
     while(true) {
         if(connections.size < 2 && moreOnServer) {
+            console.log("Too low on connections! Trying more...");
+            sleeps = 5;
             if(availablePeers.length > 0) {
                 var list = [];
                 for(var v of availablePeers) {
@@ -58,23 +61,20 @@ async function keepConnections() {
                     }
                 }
                 if(list.length != 0) {
+                    console.log(list);
                     newConnection(list[Math.floor(Math.random() * Math.floor(list.length))], true);
                 }
                 else {
-                    // Send request to server
-                    sendServer({
-                        data: "request_users"
-                    }, name);
+                    moreOnServer = false;
                 }
             }
             else {
-                // Send request to server
-                sendServer({
-                    data: "request_users"
-                }, name);
+                moreOnServer = false;
             }
         }
         else if(connections.size < 5 && moreOnServer) {
+            console.log("Attempting increase of connections...");
+            sleeps = 5;
             var list = [];
             for(var v of availablePeers) {
                 if(!connections.has(v) && !reachable.has(v)) {
@@ -82,10 +82,24 @@ async function keepConnections() {
                 }
             }
             if(list.length != 0) {
+                console.log(list);
                 newConnection(list[Math.floor(Math.random() * Math.floor(list.length))], true);
+            }
+            else {
+                moreOnServer = false;
             }
         }
         else {
+            if(sleeps > 4) {
+                sendServer({
+                    type: "request_users"
+                }, name);
+                sleeps = 0;
+            }
+            else {
+                sleeps++;
+            }
+            console.log("Nothing more on server!");
             await sleep(60000);
         }
     }
@@ -154,7 +168,7 @@ function handleClientMessage(event) {
     console.log("Got message from peer!");
     var data = JSON.parse(event.data);
     if(data.type == "broadcast") {
-        handleBroadcastMessage(data.source, data.message);
+        handleBroadcastMessage(data.sender, data.source, data.message);
     }
     else if(data.type == "direct") {
         handleDirectMessage(data.source, data.destination, data.message);
@@ -208,21 +222,28 @@ function handleRequestRoute(snd, src, dest) {
         reachable.set(src, {destination: snd, time: t.getTime()});
     }
     else {
-        requests.set(dest, src);
-        var temp = {
-            type: "request",
-            sender: name,
-            source: src,
-            destination: dest
-        };
-        for(var con of connections.values()){
-            if(con.name != sender) {
-                con.channel.send(JSON.stringify(temp));
+        // Prevents multiple broadcasts of same request
+        if(requests.has(dest) && request.get(dest)!=src) {
+            requests.set(dest, src);
+            var temp = {
+                type: "request",
+                sender: name,
+                source: src,
+                destination: dest
+            };
+            for(var con of connections.values()){
+                if(con.name != sender) {
+                    con.channel.send(JSON.stringify(temp));
+                }
             }
         }
     }
 }
 
+// Handles a direct message received
+// Message can be for this peer or for another one
+// In case it's for another one this peer checks if it has a valid entry in reachable table
+// If it hasn't sends a request for a route
 async function handleDirectMessage(src, dest, msg) {
     if(dest == name) {
         if(messages.has(dest)) {
@@ -244,8 +265,10 @@ async function handleDirectMessage(src, dest, msg) {
         }
         else if(reachable.has(dest)) {
             var obj = reachable.get(dest);
+            // If the entry on reachable is object means that it was added by a reply to a route request
             if(typeof obj == "object") {
                 var t = new Date();
+                // If entry is more than 5 minutes old it gets refreshed
                 if((t.getTime() - obj.time)>300000) {
                     reachable.delete(dest);
                     requests.set(dest, name);
@@ -272,7 +295,7 @@ async function handleDirectMessage(src, dest, msg) {
                 }
             }
             else {
-                connections.get(reachable.get(dest)).channel.send(JSON.stringify(temp));
+                connections.get(obj).channel.send(JSON.stringify(temp));
             }
         }
         else {
@@ -298,26 +321,24 @@ async function handleDirectMessage(src, dest, msg) {
     }
 }
 
-function handleBroadcastMessage(src, msg) {
+// This function sends to all it's connected peers the message received
+// It doens't send back to the peer that sent him the message
+// If the message was already broadcasted this functions discards it
+function handleBroadcastMessage(snd, src, msg) {
     var temp = {
         type: "broadcast",
+        sender: name,
         source: src,
         message: msg
     };
     if(!messages.get("broadcast").includes(msg)) {
         for(var con of connections.values()) {
-            con.channel.send(JSON.stringify(temp));
+            if(con.name != snd) {
+                con.channel.send(JSON.stringify(temp));
+            }
         }
         messages.get("broadcast").push(msg);
     }
-}
-
-function handleChannelClose() {
-    console.log("Data channel is closed!");
-}
-
-function handleChannelError(error) {
-    console.log(error);
 }
 
 // Alias for sending JSON encoded messages to signaling server
@@ -349,6 +370,7 @@ function handleLogin(success, peers) {
         });
     }
     else {
+        logged = true;
         var us = peers.split(";");
         for(i = 0; i < us.length-1; i++) {
             if(availablePeers.indexOf(us[i]) == -1 && us[i] != name) {
@@ -361,8 +383,8 @@ function handleLogin(success, peers) {
             newConnection(availablePeers[num], true);
         }
 
-        // Keep always 2 connections at least if they are available
-        // keepConnections();
+        // Keep always 2 connections at least if possible
+        keepConnections();
     }
 }
 
@@ -414,7 +436,9 @@ function newConnection(user, offer) {
                     message: list
                 };
                 for(var con of connections.values()) {
-                    con.channel.send(JSON.stringify(obj));
+                    if(con.channel.readyState == "open") {
+                        con.channel.send(JSON.stringify(obj));
+                    }
                 }
             };
             ev.channel.onmessage = handleClientMessage;
@@ -447,6 +471,16 @@ function newConnection(user, offer) {
         }
 
     }
+}
+
+// Handles DataChannel closing
+function handleChannelClose(event) {
+    console.log("Data channel is closed!");
+}
+
+// Handles the error when creating DataChannel
+function handleChannelError(error) {
+    console.log(error);
 }
 
 // When somebody sends us an offer
@@ -553,7 +587,7 @@ function handleUsers(users) {
 
 async function sendMessage(type, dest, msg) {
     if(type == "broadcast") {
-        handleBroadcastMessage(name, msg);
+        handleBroadcastMessage(name, name, msg);
     }
     else {
         handleDirectMessage(name, dest, msg);
