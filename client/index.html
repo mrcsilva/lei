@@ -61,23 +61,7 @@
             </div>
         </div>
         <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
-        <script src="js/client.js"></script>
         <script src="js/webrtc.js"></script>
-        <script type="text/javascript">
-
-            $(document).ready(function() {
-                name = names[Math.floor(Math.random()*names.length)];
-
-                setTimeout(function () {
-                    if (name.length > 0) {
-                       send({
-                          type: "login",
-                          name: name
-                       });
-                    }
-                }, 2000);
-
-            });
-        </script>
+        <script src="js/client.js"></script>
    </body>
 </html>

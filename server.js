@@ -5,14 +5,14 @@ var WebSocketServer = require('ws').Server;
 var wss = new WebSocketServer({port: 9090});
 
 // all connected to the server users
-var conUsers = [];
+var conUsers = new Array();
+var conUsers = new Array();
 
 // Verify if a username is available
 // 1 if unavailable
 // 0 if available
 function logged(name) {
-    var len = conUsers.length;
-    for(i = 0; i < len; i++) {
+    for(i = 0; i < conUsers.length; i++) {
         if(name==conUsers[i].name) {
             return 1;
         }
@@ -32,8 +32,7 @@ function getUsersString() {
 // Get connection to user
 function getConUser(name) {
     var conn = null;
-    var len = conUsers.length;
-    for(i = 0; i < len; i++) {
+    for(i = 0; i < conUsers.length; i++) {
         if(name==conUsers[i].name) {
             conn = conUsers[i];
             break;
@@ -44,20 +43,22 @@ function getConUser(name) {
 
 // Remove connection to user
 function removeUser(name) {
-    var len = conUsers.length;
     var user = "";
-    for(i = 0; i < len; i++) {
+    for(i = 0; i < conUsers.length; i++) {
         if(name==conUsers[i].name) {
             user = conUsers[i].name;
             break;
         }
     }
-    conUsers.splice(i,1);
+    if(user != "") {
+        conUsers.splice(i,1);
+    }
     return user;
 }
 
 // when a user connects to our sever
 wss.on('connection', function(connection) {
+
 
     console.log("User connected");
 
@@ -166,10 +167,11 @@ wss.on('connection', function(connection) {
                 break;
 
             case "request_users":
-                var conUsers = getUsersString();
+                console.log("Received users request!");
+                var usersCon = getUsersString();
                 sendTo(connection, {
                     type: "users",
-                    users: conUsers
+                    users: usersCon
                 });
                 break;
 

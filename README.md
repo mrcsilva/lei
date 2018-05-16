@@ -1,8 +1,8 @@
 # P2P network between browsers
 
-Este é um projeto que tem como objetivo a criação de uma rede de overlay formada por browsers.
+The main goal of this project is to create an overlay network formed by browsers.
 
-Essa conexão é feita utilizando WebRTC existindo apenas um servidor para a sinalização obrigatória do WebRTC e tudo o resto fica ao cargo de cada peer(browser).
+The connection is made with WebRTC with the help of a server only for signaling that is mandatory in WebRTC. Everything else is browser's responsability.
 
 ## Signaling
 
