@@ -72,7 +72,7 @@ async function keepConnections() {
                 moreOnServer = false;
             }
         }
-        else if(connections.size < 5 && moreOnServer) {
+        else if(connections.size < 2 && moreOnServer) {
             console.log("Attempting increase of connections...");
             sleeps = 5;
             var list = [];
@@ -184,26 +184,28 @@ function handleClientMessage(event) {
         handleRequestRoute(data.sender, data.source, data.destination);
     }
     else if(data.type == "reply") {
-        handleReplyRoute(data.source, data.destination);
+        handleReplyRoute(data.sender, data.source, data.destination);
     }
 }
 
 // Handles a reply for a route request
 // src -> Neighbour that sent the reply
 // dest -> Initial destination
-function handleReplyRoute(src, dest) {
+function handleReplyRoute(snd, src, dest) {
     var next;
-    if(requests.has(dest)) {
-        next = requests.get(dest);
-        send({
-            type: "reply",
-            source: name,
-            destination: dest
-        }, next);
-        request.delete(dest);
+    if(reachable.has(dest) && typeof reachable.get(dest) == "object") {
+        next = reachable.get(dest).destination;
+        if(next != "") {
+            send({
+                type: "reply",
+                sender: name,
+                source: src,
+                destination: dest
+            }, next);
+        }
         // Update reachable table
         var t = new Date();
-        reachable.set(dest, {destination: src, time: t.getTime()});
+        reachable.set(dest, {destination: snd, time: t.getTime()});
     }
 }
 
@@ -213,18 +215,21 @@ function handleReplyRoute(src, dest) {
 // dest -> Destination peer
 function handleRequestRoute(snd, src, dest) {
     if(reachable.has(dest)) {
+        console.log("Answered!");
         send({
             type: "reply",
-            source: name,
+            sender: name,
+            source: src,
             destination: dest
         }, snd);
         var t = new Date();
         reachable.set(src, {destination: snd, time: t.getTime()});
     }
     else {
+        console.log("Forwarded!");
         // Prevents multiple broadcasts of same request
-        if(requests.has(dest) && request.get(dest)!=src) {
-            requests.set(dest, src);
+        if(!reachable.has(dest)) {
+            reachable.set(dest, {destination: snd, time: -1});
             var temp = {
                 type: "request",
                 sender: name,
@@ -232,7 +237,7 @@ function handleRequestRoute(snd, src, dest) {
                 destination: dest
             };
             for(var con of connections.values()){
-                if(con.name != sender) {
+                if(con.name != snd) {
                     con.channel.send(JSON.stringify(temp));
                 }
             }
@@ -245,12 +250,15 @@ function handleRequestRoute(snd, src, dest) {
 // In case it's for another one this peer checks if it has a valid entry in reachable table
 // If it hasn't sends a request for a route
 async function handleDirectMessage(src, dest, msg) {
+    // If he is the destination
     if(dest == name) {
-        if(messages.has(dest)) {
-            messages.get(dest).push(msg);
+        // If exists the source in messages push it to array
+        // Else create new entry
+        if(messages.has(src)) {
+            messages.get(src).messages.push(msg);
         }
         else {
-            messages.set(dest, [msg]);
+            messages.set(src, {position: 0, messages: [msg]});
         }
     }
     else {
@@ -299,23 +307,24 @@ async function handleDirectMessage(src, dest, msg) {
             }
         }
         else {
-            requests.set(dest, name);
+            console.log("Request " + dest);
+            reachable.set(dest, {destination: "", time: -1});
             var tempReq = {
                 type: "request",
                 sender: name,
-                source: name,
+                source: src,
                 destination: dest
             };
             for(var con of connections.values()){
                 con.channel.send(JSON.stringify(tempReq));
             }
             var trys = 0;
-            while(!reachable.has(dest) && trys < 3) {
+            while(reachable.get(dest).time == -1 && trys < 3) {
                 await sleep(3000);
                 trys++;
             }
             if(trys < 3) {
-                connections.get(reachable.get(dest)).channel.send(JSON.stringify(temp));
+                connections.get(reachable.get(dest).destination).channel.send(JSON.stringify(temp));
             }
         }
     }
@@ -590,6 +599,12 @@ async function sendMessage(type, dest, msg) {
         handleBroadcastMessage(name, name, msg);
     }
     else {
+        if(messages.has(dest)) {
+            messages.get(dest).messages.push(msg);
+        }
+        else {
+            messages.set(dest, {position: 0, messages: [msg]});
+        }
         handleDirectMessage(name, dest, msg);
     }
 }

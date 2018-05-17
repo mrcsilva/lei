@@ -32,14 +32,16 @@ async function updateUsers() {
             $(".users ul").append("<li><a onClick='goDirect(\""+con.name+"\")'>" + con.name + "</a></li>");
         }
     }
-    if(reachable.size > 0 ) {
-        for(var con of reachable.keys()) {
-            $(".users ul").append("<li><a onClick='goDirect(\""+con+"\")'>" + con + "</a></li>");
+    if(availablePeers.length > 0 ) {
+        for(var con of availablePeers) {
+            if(!connections.has(con)) {
+                $(".users ul").append("<li><a onClick='goDirect(\""+con+"\")'>" + con + "</a></li>");
+            }
         }
     }
     if($(".users li").length == 0) {
-        $(".users").empty();
-        s$(".users").append("<h3>No connected peers!</h3>");
+        $(".users ul").remove();
+        $(".users").append("<h3>No connected peers!</h3>");
     }
     setInterval(function() {
         $(".users").empty();
@@ -50,36 +52,69 @@ async function updateUsers() {
                 $(".users ul").append("<li><a onClick='goDirect(\""+con.name+"\")'>" + con.name + "</a></li>");
             }
         }
-        if(reachable.size > 0 ) {
-            for(var con of reachable.keys()) {
-                $(".users ul").append("<li><a onClick='goDirect(\""+con+"\")'>" + con + "</a></li>");
+        if(availablePeers.length > 0 ) {
+            for(var con of availablePeers) {
+                if(!connections.has(con)) {
+                    $(".users ul").append("<li><a onClick='goDirect(\""+con+"\")'>" + con + "</a></li>");
+                }
             }
         }
         if($(".users li").length == 0) {
-            $(".users").empty();
+            $(".users ul").remove();
+            $(".users").append("<h3>No connected peers!</h3>");
         }
     }, 5000);
 }
 
 // Updates the chat area with new messages
-async function updateMessages() {
+async function updateMessagesBroadcast() {
     var array = messages.get("broadcast");
     setInterval(function() {
         for(var i = lastPos; i < array.length; i++) {
             var text = array[i].split(";")[1].split(":");
-            if($(".chat .message-group").last().find(".message.first").find(".username").html() == text[0]) {
+            if($(".chat[name='broadcast'] .message-group").last().find(".message.first").find(".username").html() == text[0]) {
                 var put = "<div class='message'>";
                 put += "<div class='message-text'>" + text[1] + "</div></div>";
-                $(".chat .message-group").last().append(put);
+                $(".chat[name='broadcast'] .message-group").last().append(put);
             }
             else {
                 var put = "<div class='message-group'>";
                 put += "<div class='message first'>" + "<div class='username'>" + text[0] + "</div>";
                 put += "<div class='message-text'>" + text[1] + "</div></div></div>";
-                $(".chat").append(put);
+                $(".chat[name='broadcast']").append(put);
             }
             lastPos++;
         }
+
+        $('.chat').scrollTop($('.chat')[0].scrollHeight);
+    }, 500);
+}
+
+async function updateDirectMessages() {
+    setInterval(function() {
+        for (let [key, value] of messages) {
+            if(key != "broadcast") {
+                // Exists DIV with name of user
+                if($(".chat[name='" + key + "']").length == 1) {
+                    for(var i = value.position; i < value.messages.length; i++) {
+                        var text = value.messages[i].split(";")[1].split(":");
+                        if($(".chat[name='" + key + "'] .message-group").last().find(".message.first").find(".username").html() == text[0]) {
+                            var put = "<div class='message'>";
+                            put += "<div class='message-text'>" + text[1] + "</div></div>";
+                            $(".chat[name='" + key + "'] .message-group").last().append(put);
+                        }
+                        else {
+                            var put = "<div class='message-group'>";
+                            put += "<div class='message first'>" + "<div class='username'>" + text[0] + "</div>";
+                            put += "<div class='message-text'>" + text[1] + "</div></div></div>";
+                            $(".chat[name='" + key + "']").append(put);
+                        }
+                        value.position++;
+                    }
+                }
+            }
+        }
+
 
         $('.chat').scrollTop($('.chat')[0].scrollHeight);
     }, 500);
@@ -101,7 +136,8 @@ async function waitLogin() {
 
         $(".chat").css('height', h);
 
-        updateMessages();
+        updateMessagesBroadcast();
+        updateDirectMessages();
         updateUsers();
     }
     else {
@@ -118,6 +154,16 @@ function goDirect(user) {
     $(".name").css("margin-right" ,"auto");
 
     $("#sendMsgBtn").attr("name", user);
+
+    $(".chat.active").hide();
+
+    if($(".chat[name='" + user + "']").length == 1) {
+        $(".chat[name='" + user + "']").addClass("active");
+        $(".chat[name='" + user + "']").show();
+    }
+    else {
+        $("#chatarea").append("<div class='chat active' name='" + user + "'></div>");
+    }
 }
 
 function goBack() {
@@ -128,6 +174,9 @@ function goBack() {
     $(".name").css("margin-right" ,"");
 
     $("#sendMsgBtn").attr("name", "broadcast");
+
+    $(".chat.active").hide();
+    $(".chat[name='broadcast']").show();
 }
 
 // When user clicks the "send message" button
@@ -141,7 +190,7 @@ sendMsgBtn.addEventListener("click", function (event) {
             sendMessage("broadcast", name, date + ";" + name + ": " + val);
         }
         else {
-            sendMessage("direct", $(".name").attr("name"), date + ";" + name + ": " + val);
+            sendMessage("direct", $("#sendMsgBtn").attr("name"), date + ";" + name + ": " + val);
         }
 
         msgInput.val('');
@@ -164,7 +213,12 @@ $(document).keyup(function (e) {
             var t = new Date();
             var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
 
-            sendMessage("broadcast", name, date + ";" + name + ": " + val);
+            if($("#sendMsgBtn").attr("name") == "broadcast") {
+                sendMessage("broadcast", name, date + ";" + name + ": " + val);
+            }
+            else {
+                sendMessage("direct", $("#sendMsgBtn").attr("name"), date + ";" + name + ": " + val);
+            }
 
             msgInput.val('');
         }

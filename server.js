@@ -6,7 +6,6 @@ var wss = new WebSocketServer({port: 9090});
 
 // all connected to the server users
 var conUsers = new Array();
-var conUsers = new Array();
 
 // Verify if a username is available
 // 1 if unavailable
@@ -103,6 +102,16 @@ wss.on('connection', function(connection) {
                         success: true,
                         users: us
                     });
+                    // Send users to others
+                    var usersCon = getUsersString();
+                    for(var usrObj of conUsers) {
+                        if(usrObj.name != data.name) {
+                            sendTo(usrObj.con, {
+                                type: "users",
+                                users: usersCon
+                            });
+                        }
+                    }
                 }
                 break;
 
