@@ -7,6 +7,7 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background: #777777;
+    color: white;
 }
 
 h1, h2, h3, h4, h5 {
@@ -127,6 +128,42 @@ i.arrow {
     margin-top: 10px;
 }
 
+.inputfile {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+}
+
+.inputfile + label {
+    max-width: 15%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0;
+    margin: 0;
+    margin-right: 10px;
+    font-size: 1em;
+    font-weight: 700;
+    display: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.inputfile + label:hover {
+    color: #aaaaaa;
+}
+
+label span {
+    line-height: 36px;
+}
+
+svg {
+    fill: white;
+    vertical-align: middle;
+}
+
 .message .first {
     display: flex;
     flex-direction: column;
@@ -163,6 +200,7 @@ textarea {
     background-color: #444444;
     border-color: #444444;
     color: white !important;
+    flex: 1;
 }
 
 #msgInput::placeholder {

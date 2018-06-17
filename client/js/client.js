@@ -11,15 +11,50 @@ var chatArea = document.querySelector('#chatarea .chat');
 var showName = document.querySelector('.name');
 var showUsers = document.querySelector('.peers');
 
+var inputs = document.querySelectorAll( '.inputfile' );
+var label = document.querySelectorAll('label');
+var upImage = document.querySelectorAll( 'svg' );
+
+$('label').bind('mouseenter', function(e) {
+    $('svg').css('fill', '#aaaaaa');
+    $('label').css('color', '#aaaaaa');
+});
+
+$('label').bind('mouseleave', function(e) {
+    $('svg').css('fill', 'white');
+    $('label').css('color', 'white');
+});
+
+Array.prototype.forEach.call( inputs, function( input )
+{
+    var label     = input.nextElementSibling,
+        labelVal = label.innerHTML;
+
+    input.addEventListener( 'change', function( e )
+    {
+        var fileName = '';
+        if( this.files && this.files.length > 1 )
+            fileName = ( this.getAttribute( 'data-multiple-caption' ) || '' ).replace( '{count}', this.files.length );
+        else
+            fileName = e.target.value.split( '\\' ).pop();
+
+        if( fileName )
+            label.querySelector( 'span' ).innerHTML = fileName;
+        else
+            label.innerHTML = labelVal;
+    });
+});
+
 callPage.style.display = "none";
 
-// Last position is messages
+// Last position in messages
 var lastPos = 0;
 
 // ****************
 // Webpage dynamics
 // ****************
 
+var chunckSize = 64000;
 var isShift = false;
 
 // Updates the list of users
@@ -152,6 +187,7 @@ function goDirect(user) {
     $(".header").css("display", "flex");
     $(".header a").css("display", "block");
     $(".name").css("margin-right" ,"auto");
+    $("label").css("display", "inline-block");
 
     $("#sendMsgBtn").attr("name", user);
 
@@ -172,6 +208,7 @@ function goBack() {
     $(".header").css("display", "block");
     $(".header a").css("display", "none");
     $(".name").css("margin-right" ,"");
+    $("label").css("display", "none");
 
     $("#sendMsgBtn").attr("name", "broadcast");
 
@@ -182,6 +219,7 @@ function goBack() {
 // When user clicks the "send message" button
 sendMsgBtn.addEventListener("click", function (event) {
     var val = msgInput.val();
+    var file = document.querySelectorAll('.inputfile');
     if(val.length > 0) {
         var t = new Date();
         var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
@@ -194,6 +232,10 @@ sendMsgBtn.addEventListener("click", function (event) {
         }
 
         msgInput.val('');
+    }
+    else if(file.files[0]) {
+        var msg = file.name + ";" + file.size + ";" + file.type;
+        sendMessage("file", msg);
     }
 });
 
@@ -209,6 +251,7 @@ $(document).keyup(function (e) {
     if(e.which == 16) isShift = true;
     if(e.which == 13 && isShift == false) {
         var val = msgInput.val();
+        var file = document.querySelectorAll('.inputfile');
         if(val.length > 0) {
             var t = new Date();
             var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
@@ -221,6 +264,10 @@ $(document).keyup(function (e) {
             }
 
             msgInput.val('');
+        }
+        else if(file.files[0]){
+            var msg = date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
+            sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
         }
     }
 });

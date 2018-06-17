@@ -42,10 +42,31 @@ var moreOnServer = true;
 // Indicates if the user is logged
 var logged = false;
 
+// Max size for chuck when sending files
+var chunckSize = 16384;
+
+// Buffer to receive data
+var receiveBuffer = [];
+
+// Size of received data
+var receivedSize = 0;
+
+// Verify if an object is parsable by JSON
+function IsJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
+// Create promise to sleep for ms miliseconds
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Keeps at least 2 connections with other peers
 async function keepConnections() {
     var sleeps = 0;
     await sleep(1000);
@@ -166,25 +187,43 @@ var configuration = {
 // Do not change anything below neighbours else if!
 function handleClientMessage(event) {
     console.log("Got message from peer!");
-    var data = JSON.parse(event.data);
-    if(data.type == "broadcast") {
-        handleBroadcastMessage(data.sender, data.source, data.message);
-    }
-    else if(data.type == "direct") {
-        handleDirectMessage(data.source, data.destination, data.message);
-    }
-    else if (data.type == "neighbours") {
-        for(i = 0; i < data.message.length; i++) {
-            if(data.message[i] != name && !reachable.has(data.message[i])) {
-                reachable.set(data.message[i], data.user);
+    if(IsJsonString(event.data)) {
+        var data = JSON.parse(event.data);
+        if(data.type == "broadcast") {
+            handleBroadcastMessage(data.sender, data.source, data.message);
+        }
+        else if(data.type == "direct") {
+            handleDirectMessage(data.source, data.destination, data.message);
+        }
+        else if (data.type == "neighbours") {
+            for(i = 0; i < data.message.length; i++) {
+                if(data.message[i] != name && !reachable.has(data.message[i])) {
+                    reachable.set(data.message[i], data.user);
+                }
             }
         }
+        else if(data.type == "request") {
+            handleRequestRoute(data.sender, data.source, data.destination);
+        }
+        else if(data.type == "reply") {
+            handleReplyRoute(data.sender, data.source, data.destination);
+        }
+        else if(data.type == "filename") {
+            fileName = data.name;
+            fileType = data.fileType;
+            fileSize = data.size;
+            fileSrc = data.source;
+            fileDst = data.destination;
+        }
     }
-    else if(data.type == "request") {
-        handleRequestRoute(data.sender, data.source, data.destination);
-    }
-    else if(data.type == "reply") {
-        handleReplyRoute(data.sender, data.source, data.destination);
+    else {
+        receiveBuffer.push(event.data);
+        receivedSize += event.data.byteLength;
+
+        if (receivedSize === file.size) {
+            var received = new window.Blob(receiveBuffer);
+            handleFile(received, fileName, fileType, fileSize, src, dst);
+        }
     }
 }
 
@@ -598,7 +637,7 @@ async function sendMessage(type, dest, msg) {
     if(type == "broadcast") {
         handleBroadcastMessage(name, name, msg);
     }
-    else {
+    else if(type == "direct") {
         if(messages.has(dest)) {
             messages.get(dest).messages.push(msg);
         }
@@ -607,4 +646,19 @@ async function sendMessage(type, dest, msg) {
         }
         handleDirectMessage(name, dest, msg);
     }
+    else if(type = "file") {
+        var split = msg.split(";");
+        var msgFinal = split[0] + ";" + split[1] + ":" + split[2];
+        if(messages.has(dest)) {
+            messages.get(dest).messages.push(msgFinal);
+        }
+        else {
+            messages.set(dest, {position: 0, messages: [msgFinal]});
+        }
+        handleDirectMessage(name, dest, msg);
+    }
+}
+
+async function sendFile() {
+
 }
