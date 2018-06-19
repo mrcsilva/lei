@@ -208,7 +208,7 @@ function handleClientMessage(event) {
         else if(data.type == "reply") {
             handleReplyRoute(data.sender, data.source, data.destination);
         }
-        else if(data.type == "filename") {
+        else if(data.type == "file") {
             fileName = data.name;
             fileType = data.fileType;
             fileSize = data.size;
@@ -225,6 +225,10 @@ function handleClientMessage(event) {
             handleFile(received, fileName, fileType, fileSize, src, dst);
         }
     }
+}
+
+function handleFile(buffer, name, type, size, src, dst) {
+
 }
 
 // Handles a reply for a route request
@@ -294,10 +298,17 @@ async function handleDirectMessage(src, dest, msg) {
         // If exists the source in messages push it to array
         // Else create new entry
         if(messages.has(src)) {
-            messages.get(src).messages.push(msg);
+            if(msg.split(";").size <= 2) {
+                messages.get(src).messages.push({type:"text", message: msg});
+            }
+            else {
+                var split = msg.split(";");
+                var msgFinal = split[1] + ";" + split[2] + ":" + split[3];
+                messages.get(src).messages.push({type:"file", message: msgFinal});
+            }
         }
         else {
-            messages.set(src, {position: 0, messages: [msg]});
+            messages.set(src, {position: 0, messages: [{type:"text", message: msg}]});
         }
     }
     else {
@@ -633,32 +644,58 @@ function handleUsers(users) {
 // API Funtions
 // ************
 
+
 async function sendMessage(type, dest, msg) {
     if(type == "broadcast") {
         handleBroadcastMessage(name, name, msg);
     }
     else if(type == "direct") {
         if(messages.has(dest)) {
-            messages.get(dest).messages.push(msg);
+            messages.get(dest).messages.push({type:"text", message: msg});
         }
         else {
-            messages.set(dest, {position: 0, messages: [msg]});
+            messages.set(dest, {position: 0, messages: [{type:"text", message: msg}]});
         }
         handleDirectMessage(name, dest, msg);
     }
-    else if(type = "file") {
+    else if(type == "file") {
         var split = msg.split(";");
-        var msgFinal = split[0] + ";" + split[1] + ":" + split[2];
+        var msgFinal = split[1] + ";" + split[2] + ":" + split[3];
         if(messages.has(dest)) {
-            messages.get(dest).messages.push(msgFinal);
+            messages.get(dest).messages.push({type:"text", message: msgFinal});
         }
         else {
-            messages.set(dest, {position: 0, messages: [msgFinal]});
+            messages.set(dest, {position: 0, messages: [{type:"text", message: msgFinal}]});
         }
         handleDirectMessage(name, dest, msg);
+        sendFile(dest);
     }
 }
 
-async function sendFile() {
 
+async function sendFile(dst, file) {
+    var channel = 1;
+    if(connections.has(dst)) {
+        channel = connecions.get(dst).channel;
+    }
+    else if(reachable.has(dst)) {
+        channel = connections.get(reachable.get(dst)).channel;
+    }
+    if(channel!==1) {
+        var sliceFile = function(offset) {
+            var reader = new window.FileReader();
+            reader.onload = (function() {
+                return function(e) {
+                    channel.send(e.target.result);
+                    if (file.size > offset + e.target.result.byteLength) {
+                        window.setTimeout(sliceFile, 0, offset + chunkSize);
+                    }
+                    sendProgress.value = offset + e.target.result.byteLength;
+                };
+            })(file);
+            var slice = file.slice(offset, offset + chunkSize);
+            reader.readAsArrayBuffer(slice);
+        };
+        sliceFile(0);
+    }
 }

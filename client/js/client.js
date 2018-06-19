@@ -266,8 +266,9 @@ $(document).keyup(function (e) {
             msgInput.val('');
         }
         else if(file.files[0]){
-            var msg = date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
+            var msg = $("#sendMsgBtn").attr("name") + ";" + date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
             sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
+            sendFile($("#sendMsgBtn").attr("name"), file.files[0]);
         }
     }
 });
