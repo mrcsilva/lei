@@ -132,16 +132,24 @@ async function updateDirectMessages() {
                 // Exists DIV with name of user
                 if($(".chat[name='" + key + "']").length == 1) {
                     for(var i = value.position; i < value.messages.length; i++) {
-                        var text = value.messages[i].split(";")[1].split(":");
-                        if($(".chat[name='" + key + "'] .message-group").last().find(".message.first").find(".username").html() == text[0]) {
+                        var text = "";
+                        var username = value.messages[i].message.split(";")[1].split(":")[0];
+                        var message = value.messages[i].message.split(";")[1].split(":")[1];
+                        if(value.messages[i].type == "file") {
+                            text = "<a class='file " + hashCode(message) + "'>" + message + "</a>";
+                        }
+                        else if(value.messages[i].type == "text"){
+                            text = message;
+                        }
+                        if($(".chat[name='" + key + "'] .message-group").last().find(".message.first").find(".username").html() == username) {
                             var put = "<div class='message'>";
-                            put += "<div class='message-text'>" + text[1] + "</div></div>";
+                            put += "<div class='message-text'>" + text + "</div></div>";
                             $(".chat[name='" + key + "'] .message-group").last().append(put);
                         }
                         else {
                             var put = "<div class='message-group'>";
-                            put += "<div class='message first'>" + "<div class='username'>" + text[0] + "</div>";
-                            put += "<div class='message-text'>" + text[1] + "</div></div></div>";
+                            put += "<div class='message first'>" + "<div class='username'>" + username + "</div>";
+                            put += "<div class='message-text'>" + text + "</div></div></div>";
                             $(".chat[name='" + key + "']").append(put);
                         }
                         value.position++;
@@ -219,11 +227,10 @@ function goBack() {
 // When user clicks the "send message" button
 sendMsgBtn.addEventListener("click", function (event) {
     var val = msgInput.val();
-    var file = document.querySelectorAll('.inputfile');
+    var file = document.querySelectorAll('.inputfile')[0].files[0];
+    var t = new Date();
+    var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
     if(val.length > 0) {
-        var t = new Date();
-        var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
-
         if($("#sendMsgBtn").attr("name") == "broadcast") {
             sendMessage("broadcast", name, date + ";" + name + ": " + val);
         }
@@ -233,9 +240,10 @@ sendMsgBtn.addEventListener("click", function (event) {
 
         msgInput.val('');
     }
-    else if(file.files[0]) {
-        var msg = file.name + ";" + file.size + ";" + file.type;
-        sendMessage("file", msg);
+    else if(file) {
+        var msg = $("#sendMsgBtn").attr("name") + ";" + date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
+        sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
+        sendFile($("#sendMsgBtn").attr("name"), file);
     }
 });
 
@@ -251,11 +259,10 @@ $(document).keyup(function (e) {
     if(e.which == 16) isShift = true;
     if(e.which == 13 && isShift == false) {
         var val = msgInput.val();
-        var file = document.querySelectorAll('.inputfile');
+        var file = document.querySelectorAll('.inputfile')[0].files[0];
+        var t = new Date();
+        var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
         if(val.length > 0) {
-            var t = new Date();
-            var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
-
             if($("#sendMsgBtn").attr("name") == "broadcast") {
                 sendMessage("broadcast", name, date + ";" + name + ": " + val);
             }
@@ -265,10 +272,10 @@ $(document).keyup(function (e) {
 
             msgInput.val('');
         }
-        else if(file.files[0]){
+        else if(file){
             var msg = $("#sendMsgBtn").attr("name") + ";" + date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
             sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
-            sendFile($("#sendMsgBtn").attr("name"), file.files[0]);
+            sendFile($("#sendMsgBtn").attr("name"), file);
         }
     }
 });

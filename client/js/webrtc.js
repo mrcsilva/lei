@@ -43,13 +43,17 @@ var moreOnServer = true;
 var logged = false;
 
 // Max size for chuck when sending files
-var chunckSize = 16384;
+var chunkSize = 65535;
 
 // Buffer to receive data
 var receiveBuffer = [];
 
 // Size of received data
 var receivedSize = 0;
+
+// *************
+// Aux functions
+// *************
 
 // Verify if an object is parsable by JSON
 function IsJsonString(str) {
@@ -61,10 +65,26 @@ function IsJsonString(str) {
     return true;
 }
 
+// Return a hash of a string
+function hashCode(str) {
+    var hash = 0, i, chr;
+    if (str.length === 0) return hash;
+    for (i = 0; i < str.length; i++) {
+        chr   = str.charCodeAt(i);
+        hash  = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+}
+
 // Create promise to sleep for ms miliseconds
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// ***************
+// WebRTC dinamics
+// ***************
 
 // Keeps at least 2 connections with other peers
 async function keepConnections() {
@@ -209,26 +229,62 @@ function handleClientMessage(event) {
             handleReplyRoute(data.sender, data.source, data.destination);
         }
         else if(data.type == "file") {
-            fileName = data.name;
-            fileType = data.fileType;
-            fileSize = data.size;
-            fileSrc = data.source;
-            fileDst = data.destination;
+            var split = data.message.split(";");
+            fileName = split[3];
+            fileType = split[5];
+            fileSize = split[4];
+            fileSrc = split[2];
+            fileDst = split[0];
+            fileDate = split[1];
+            handleDirectMessage(data.source, data.destination, data.message);
         }
     }
     else {
         receiveBuffer.push(event.data);
         receivedSize += event.data.byteLength;
 
-        if (receivedSize === file.size) {
+        if (receivedSize == fileSize) {
             var received = new window.Blob(receiveBuffer);
-            handleFile(received, fileName, fileType, fileSize, src, dst);
+            handleFile(received, fileDate, fileName, fileType, fileSize, fileSrc, fileDst);
         }
     }
 }
 
-function handleFile(buffer, name, type, size, src, dst) {
+async function handleFile(buffer, date, fileName, type, size, src, dst) {
+    if(dst==name) {
+        receiveBuffer = [];
+        receivedSize = 0;
 
+        var href = URL.createObjectURL(buffer);
+        var download = fileName;
+        var textContent = fileName;
+        var hash = hashCode(fileName);
+
+        $('a.' + hash).attr('href', href);
+        $('a.' + hash).attr('download', download);
+        $('a.' + hash).html(textContent);
+
+        fileName = "";
+        fileType = "";
+        fileSize = "";
+        fileSrc = "";
+        fileDst = "";
+        fileDate = "";
+    }
+    else {
+        var msg = dst + ";" + date + ";" + src + ";" + fileName + ";" + size + ";" + type;
+        handleDirectMessage("file", dst, msg);
+        if(!connections.has(dst) || !reachable.has(dst)) {
+            await sleep(10000);
+        }
+        sendFile(dst, buffer);
+        fileName = "";
+        fileType = "";
+        fileSize = "";
+        fileSrc = "";
+        fileDst = "";
+        fileDate = "";
+    }
 }
 
 // Handles a reply for a route request
@@ -297,26 +353,35 @@ async function handleDirectMessage(src, dest, msg) {
     if(dest == name) {
         // If exists the source in messages push it to array
         // Else create new entry
+        var split = msg.split(";");
+        var msgFinal = split[1] + ";" + split[2] + ":" + split[3];
         if(messages.has(src)) {
-            if(msg.split(";").size <= 2) {
+            if(msg.split(";").length <= 2) {
                 messages.get(src).messages.push({type:"text", message: msg});
             }
             else {
-                var split = msg.split(";");
-                var msgFinal = split[1] + ";" + split[2] + ":" + split[3];
                 messages.get(src).messages.push({type:"file", message: msgFinal});
             }
         }
         else {
-            messages.set(src, {position: 0, messages: [{type:"text", message: msg}]});
+            if(msg.split(";").length <= 2) {
+                messages.set(src, {position: 0, messages: [{type:"text", message: msg}]});
+            }
+            else {
+                messages.set(src, {position: 0, messages: [{type:"file", message: msgFinal}]});
+            }
         }
     }
     else {
+        var split = msg.split(";");
         var temp = {
             type: "direct",
             source: src,
             destination: dest,
             message: msg
+        }
+        if(split.length > 2) {
+            temp.type = "file";
         }
         if(connections.has(dest)) {
             connections.get(dest).channel.send(JSON.stringify(temp));
@@ -511,7 +576,7 @@ function newConnection(user, offer) {
         // Se vai enviar offer
         if(offer==true) {
             // Creating dataChannel
-            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
+            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered: true});
 
             conObj.channel.onmessage = handleClientMessage;
             conObj.channel.onclose = handleChannelClose;
@@ -554,7 +619,7 @@ function handleOffer(offer, user) {
     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
     // Creating dataChannel
-    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:false});
+    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:true});
 
     conObj.channel.onmessage = handleClientMessage;
     conObj.channel.onclose = handleChannelClose;
@@ -659,16 +724,16 @@ async function sendMessage(type, dest, msg) {
         handleDirectMessage(name, dest, msg);
     }
     else if(type == "file") {
+        console.log(msg);
         var split = msg.split(";");
         var msgFinal = split[1] + ";" + split[2] + ":" + split[3];
         if(messages.has(dest)) {
-            messages.get(dest).messages.push({type:"text", message: msgFinal});
+            messages.get(dest).messages.push({type:"file", message: msgFinal});
         }
         else {
-            messages.set(dest, {position: 0, messages: [{type:"text", message: msgFinal}]});
+            messages.set(dest, {position: 0, messages: [{type:"file", message: msgFinal}]});
         }
         handleDirectMessage(name, dest, msg);
-        sendFile(dest);
     }
 }
 
@@ -676,7 +741,7 @@ async function sendMessage(type, dest, msg) {
 async function sendFile(dst, file) {
     var channel = 1;
     if(connections.has(dst)) {
-        channel = connecions.get(dst).channel;
+        channel = connections.get(dst).channel;
     }
     else if(reachable.has(dst)) {
         channel = connections.get(reachable.get(dst)).channel;
@@ -690,7 +755,6 @@ async function sendFile(dst, file) {
                     if (file.size > offset + e.target.result.byteLength) {
                         window.setTimeout(sliceFile, 0, offset + chunkSize);
                     }
-                    sendProgress.value = offset + e.target.result.byteLength;
                 };
             })(file);
             var slice = file.slice(offset, offset + chunkSize);

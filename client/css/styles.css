@@ -164,6 +164,15 @@ svg {
     vertical-align: middle;
 }
 
+.file {
+    color: white;
+}
+
+.file:hover {
+    color: aqua;
+    text-decoration: none;
+}
+
 .message .first {
     display: flex;
     flex-direction: column;
