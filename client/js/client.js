@@ -136,7 +136,7 @@ async function updateDirectMessages() {
                         var username = value.messages[i].message.split(";")[1].split(":")[0];
                         var message = value.messages[i].message.split(";")[1].split(":")[1];
                         if(value.messages[i].type == "file") {
-                            text = "<a class='file " + hashCode(message) + "'>" + message + "</a>";
+                            text = "<a class='file " + MD5(message) + "'>Receiving...</a>";
                         }
                         else if(value.messages[i].type == "text"){
                             text = message;
