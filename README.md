@@ -4,6 +4,10 @@ The main goal of this project is to create an overlay network formed by browsers
 
 The connection is made with WebRTC with the help of a server only for signaling that is mandatory in WebRTC, for the initial bootstrap and to keep an up to date list of all connected peers for our project. Everything else is browser's duty.
 
+## Application
+
+To test our overlay network we implemented a chat room that allows messages between everyone or a direct message system that allows messaging or file transfer. All this is done without any direct connections if both peers aren't directly connected. All data is routed through the overlay network.
+
 ## Signaling
 
 The mentioned signaling is only used when two peers want to establish a connection.
