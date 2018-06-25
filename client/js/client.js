@@ -11,15 +11,50 @@ var chatArea = document.querySelector('#chatarea .chat');
 var showName = document.querySelector('.name');
 var showUsers = document.querySelector('.peers');
 
+var inputs = document.querySelectorAll( '.inputfile' );
+var label = document.querySelectorAll('label');
+var upImage = document.querySelectorAll( 'svg' );
+
+$('label').bind('mouseenter', function(e) {
+    $('svg').css('fill', '#aaaaaa');
+    $('label').css('color', '#aaaaaa');
+});
+
+$('label').bind('mouseleave', function(e) {
+    $('svg').css('fill', 'white');
+    $('label').css('color', 'white');
+});
+
+Array.prototype.forEach.call( inputs, function( input )
+{
+    var label     = input.nextElementSibling,
+        labelVal = label.innerHTML;
+
+    input.addEventListener( 'change', function( e )
+    {
+        var fileName = '';
+        if( this.files && this.files.length > 1 )
+            fileName = ( this.getAttribute( 'data-multiple-caption' ) || '' ).replace( '{count}', this.files.length );
+        else
+            fileName = e.target.value.split( '\\' ).pop();
+
+        if( fileName )
+            label.querySelector( 'span' ).innerHTML = fileName;
+        else
+            label.innerHTML = labelVal;
+    });
+});
+
 callPage.style.display = "none";
 
-// Last position is messages
+// Last position in messages
 var lastPos = 0;
 
 // ****************
 // Webpage dynamics
 // ****************
 
+var chunckSize = 64000;
 var isShift = false;
 
 // Updates the list of users
@@ -97,16 +132,24 @@ async function updateDirectMessages() {
                 // Exists DIV with name of user
                 if($(".chat[name='" + key + "']").length == 1) {
                     for(var i = value.position; i < value.messages.length; i++) {
-                        var text = value.messages[i].split(";")[1].split(":");
-                        if($(".chat[name='" + key + "'] .message-group").last().find(".message.first").find(".username").html() == text[0]) {
+                        var text = "";
+                        var username = value.messages[i].message.split(";")[1].split(":")[0];
+                        var message = value.messages[i].message.split(";")[1].split(":")[1];
+                        if(value.messages[i].type == "file") {
+                            text = "<a class='file " + MD5(message) + "'>Receiving...</a>";
+                        }
+                        else if(value.messages[i].type == "text"){
+                            text = message;
+                        }
+                        if($(".chat[name='" + key + "'] .message-group").last().find(".message.first").find(".username").html() == username) {
                             var put = "<div class='message'>";
-                            put += "<div class='message-text'>" + text[1] + "</div></div>";
+                            put += "<div class='message-text'>" + text + "</div></div>";
                             $(".chat[name='" + key + "'] .message-group").last().append(put);
                         }
                         else {
                             var put = "<div class='message-group'>";
-                            put += "<div class='message first'>" + "<div class='username'>" + text[0] + "</div>";
-                            put += "<div class='message-text'>" + text[1] + "</div></div></div>";
+                            put += "<div class='message first'>" + "<div class='username'>" + username + "</div>";
+                            put += "<div class='message-text'>" + text + "</div></div></div>";
                             $(".chat[name='" + key + "']").append(put);
                         }
                         value.position++;
@@ -152,6 +195,7 @@ function goDirect(user) {
     $(".header").css("display", "flex");
     $(".header a").css("display", "block");
     $(".name").css("margin-right" ,"auto");
+    $("label").css("display", "inline-block");
 
     $("#sendMsgBtn").attr("name", user);
 
@@ -172,6 +216,7 @@ function goBack() {
     $(".header").css("display", "block");
     $(".header a").css("display", "none");
     $(".name").css("margin-right" ,"");
+    $("label").css("display", "none");
 
     $("#sendMsgBtn").attr("name", "broadcast");
 
@@ -182,10 +227,10 @@ function goBack() {
 // When user clicks the "send message" button
 sendMsgBtn.addEventListener("click", function (event) {
     var val = msgInput.val();
+    var file = document.querySelectorAll('.inputfile')[0].files[0];
+    var t = new Date();
+    var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
     if(val.length > 0) {
-        var t = new Date();
-        var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
-
         if($("#sendMsgBtn").attr("name") == "broadcast") {
             sendMessage("broadcast", name, date + ";" + name + ": " + val);
         }
@@ -194,6 +239,11 @@ sendMsgBtn.addEventListener("click", function (event) {
         }
 
         msgInput.val('');
+    }
+    else if(file) {
+        var msg = $("#sendMsgBtn").attr("name") + ";" + date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
+        sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
+        sendFile($("#sendMsgBtn").attr("name"), file);
     }
 });
 
@@ -209,10 +259,10 @@ $(document).keyup(function (e) {
     if(e.which == 16) isShift = true;
     if(e.which == 13 && isShift == false) {
         var val = msgInput.val();
+        var file = document.querySelectorAll('.inputfile')[0].files[0];
+        var t = new Date();
+        var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
         if(val.length > 0) {
-            var t = new Date();
-            var date = t.getDate() + "-" + (t.getMonth()+1) + "-" + t.getFullYear() + " " + t.getHours() + ":" + t.getMinutes() + ":" + t.getSeconds() + ":" + t.getMilliseconds();
-
             if($("#sendMsgBtn").attr("name") == "broadcast") {
                 sendMessage("broadcast", name, date + ";" + name + ": " + val);
             }
@@ -221,6 +271,11 @@ $(document).keyup(function (e) {
             }
 
             msgInput.val('');
+        }
+        else if(file){
+            var msg = $("#sendMsgBtn").attr("name") + ";" + date + ";" + name + ";" + file.name + ";" + file.size + ";" + file.type;
+            sendMessage("file", $("#sendMsgBtn").attr("name"), msg);
+            sendFile($("#sendMsgBtn").attr("name"), file);
         }
     }
 });
