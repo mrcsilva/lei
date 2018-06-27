@@ -44,6 +44,7 @@ var logged = false;
 
 // Max size for chuck when sending files
 var chunkSize = 65535;
+const BYTES_PER_CHUNK = 1200;
 
 // Buffer to receive data
 var receiveBuffer = [];
@@ -464,12 +465,19 @@ async function handleFile(buffer, date, fName, type, size, src, dst) {
         var hash = MD5(fName);
 
         console.log($('.' + hash).length);
-        if($('.' + hash).length == 0) {
+        var trys = 0;
+        while($('.' + hash).length == 0 && trys < 30) {
             await sleep(1000);
+            trys++;
         }
         $('.' + hash).attr('href', href);
         $('.' + hash).attr('download', download);
-        $('.' + hash).html(textContent);
+        if(trys >= 30) {
+            $('.' + hash).html("Error downloading file!");
+        }
+        else {
+            $('.' + hash).html(textContent);
+        }
 
         fileName = "";
         fileType = "";
@@ -838,6 +846,17 @@ function handleOffer(offer, user) {
 
     conObj = connections.get(user);
 
+    // var newOffer;
+    // console.log("print offer");
+    // console.log(offer.sdp);
+    // var split = offer.sdp.split("b=AS:30");
+    // if(split.length > 1) {
+    //     offer.sdp = split[0] + "b=AS:1638400" + split[1];
+    // }
+    // else {
+    //     offer.sdp = offer.sdp;
+    // }
+
     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
     // Creating dataChannel
@@ -850,6 +869,15 @@ function handleOffer(offer, user) {
     //create an answer to an offer
     console.log("Sending answer to " + conObj.name);
     conObj.connection.createAnswer(function (answer) {
+        var newAnswer;
+
+        // var split = answer.sdp.split("b=AS:30");
+        // if(split.length > 1) {
+        //     answer.sdp = split[0] + "b=AS:1638400" + split[1];
+        // }
+        // else {
+        //     answer.sdp = answer.sdp;
+        // }
         conObj.connection.setLocalDescription(answer);
         sendServer({
             type: "answer",
@@ -867,6 +895,16 @@ function handleAnswer(answer, user) {
 
 
     if(connections.has(user)) {
+        var newAnswer;
+
+        // var split = answer.sdp.split("b=AS:30");
+        // if(split.length > 1) {
+        //     answer.sdp = split[0] + "b=AS:1638400" + split[1];
+        // }
+        // else {
+        //     answer.sdp = answer.sdp;
+        // }
+
         conObj = connections.get(user);
         conObj.connection.setRemoteDescription(new RTCSessionDescription(answer));
     }
@@ -960,6 +998,13 @@ async function sendMessage(type, dest, msg) {
 }
 
 
+function readNextChunk(fileReader, file, currentChunk) {
+    var start = BYTES_PER_CHUNK * currentChunk;
+    var end = Math.min( file.size, start + BYTES_PER_CHUNK );
+    fileReader.readAsArrayBuffer( file.slice( start, end ) );
+}
+
+
 async function sendFile(dst, file) {
     // Don't remove this line
     // This allows handleDirectMessage to create an entry in reachable Map
@@ -994,20 +1039,17 @@ async function sendFile(dst, file) {
         }
     }
     if(channel!==1) {
+        var fileReader = new window.FileReader();
+        var currentChunk = 0;
         console.log("vai enviar");
-        var sliceFile = function(offset) {
-            var reader = new window.FileReader();
-            reader.onload = (function() {
-                return function(e) {
-                    channel.send(e.target.result);
-                    if (file.size > offset + e.target.result.byteLength) {
-                        window.setTimeout(sliceFile, 0, offset + chunkSize);
-                    }
-                };
-            })(file);
-            var slice = file.slice(offset, offset + chunkSize);
-            reader.readAsArrayBuffer(slice);
+        fileReader.onload = function() {
+            channel.send( fileReader.result );
+            currentChunk++;
+
+            if( BYTES_PER_CHUNK * currentChunk < file.size ) {
+                readNextChunk(fileReader, file, currentChunk);
+            }
         };
-        sliceFile(0);
+        readNextChunk(fileReader, file, currentChunk);
     }
 }

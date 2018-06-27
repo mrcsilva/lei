@@ -136,7 +136,12 @@ async function updateDirectMessages() {
                         var username = value.messages[i].message.split(";")[1].split(":")[0];
                         var message = value.messages[i].message.split(";")[1].split(":")[1];
                         if(value.messages[i].type == "file") {
-                            text = "<a class='file " + MD5(message) + "'>Receiving...</a>";
+                            if(username==name) {
+                                text = "<a class='file " + MD5(message) + "'> " + message + " </a>";
+                            }
+                            else {
+                                text = "<a class='file " + MD5(message) + "'>Receiving...</a>";
+                            }
                         }
                         else if(value.messages[i].type == "text"){
                             text = message;
@@ -160,7 +165,7 @@ async function updateDirectMessages() {
 
 
         $('.chat').scrollTop($('.chat')[0].scrollHeight);
-    }, 500);
+    }, 10);
 }
 
 // Waits that the login on server is made
