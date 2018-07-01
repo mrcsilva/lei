@@ -348,7 +348,7 @@ async function keepConnections() {
 }
 
 // Connecting to our signaling server
-var conn = new WebSocket('ws://antenas.dynu.com:9090');
+var conn = new WebSocket('ws://192.168.43.247:9090');
 
 conn.onopen = function () {
    console.log("Connected to the signaling server");
@@ -806,7 +806,7 @@ function newConnection(user, offer) {
         // Se vai enviar offer
         if(offer==true) {
             // Creating dataChannel
-            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered: true});
+            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered: true, reliable:false});
 
             conObj.channel.onmessage = handleClientMessage;
             conObj.channel.onclose = handleChannelClose;
@@ -860,7 +860,7 @@ function handleOffer(offer, user) {
     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
     // Creating dataChannel
-    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:true});
+    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:true, reliable: false});
 
     conObj.channel.onmessage = handleClientMessage;
     conObj.channel.onclose = handleChannelClose;
