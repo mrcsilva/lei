@@ -348,7 +348,7 @@ async function keepConnections() {
 }
 
 // Connecting to our signaling server
-var conn = new WebSocket('ws://192.168.43.247:9090');
+var conn = new WebSocket('ws://antenas.dynu.com:9090');
 
 conn.onopen = function () {
    console.log("Connected to the signaling server");
