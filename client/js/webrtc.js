@@ -43,7 +43,7 @@ var moreOnServer = true;
 var logged = false;
 
 // Max size for chuck when sending files
-var chunkSize = 65535;
+var chunkSize = 16384;
 const BYTES_PER_CHUNK = 1200;
 
 // Buffer to receive data
@@ -348,7 +348,7 @@ async function keepConnections() {
 }
 
 // Connecting to our signaling server
-var conn = new WebSocket('ws://antenas.dynu.com:9090');
+var conn = new WebSocket('ws://192.168.2.10:9090');
 
 conn.onopen = function () {
    console.log("Connected to the signaling server");
@@ -443,6 +443,7 @@ function handleClientMessage(event) {
     else {
         receiveBuffer.push(event.data);
         receivedSize += event.data.byteLength;
+        console.log( 'progress: ' +  ((receivedSize / fileSize ) * 100).toFixed( 2 ) + '%' );
 
         if (receivedSize == fileSize) {
             var received = new window.Blob(receiveBuffer);
@@ -806,7 +807,7 @@ function newConnection(user, offer) {
         // Se vai enviar offer
         if(offer==true) {
             // Creating dataChannel
-            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered: true, reliable:false});
+            conObj.channel = conObj.connection.createDataChannel("channel1", {ordered: true, protocol: "sctp"});
 
             conObj.channel.onmessage = handleClientMessage;
             conObj.channel.onclose = handleChannelClose;
@@ -860,7 +861,7 @@ function handleOffer(offer, user) {
     conObj.connection.setRemoteDescription(new RTCSessionDescription(offer));
 
     // Creating dataChannel
-    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:true, reliable: false});
+    conObj.channel = conObj.connection.createDataChannel("channel1", {ordered:true, protocol: "sctp"});
 
     conObj.channel.onmessage = handleClientMessage;
     conObj.channel.onclose = handleChannelClose;
@@ -869,8 +870,8 @@ function handleOffer(offer, user) {
     //create an answer to an offer
     console.log("Sending answer to " + conObj.name);
     conObj.connection.createAnswer(function (answer) {
-        var newAnswer;
-
+        // var newAnswer;
+        //
         // var split = answer.sdp.split("b=AS:30");
         // if(split.length > 1) {
         //     answer.sdp = split[0] + "b=AS:1638400" + split[1];
@@ -1040,16 +1041,31 @@ async function sendFile(dst, file) {
     }
     if(channel!==1) {
         var fileReader = new window.FileReader();
-        var currentChunk = 0;
-        console.log("vai enviar");
-        fileReader.onload = function() {
-            channel.send( fileReader.result );
-            currentChunk++;
-
-            if( BYTES_PER_CHUNK * currentChunk < file.size ) {
-                readNextChunk(fileReader, file, currentChunk);
-            }
+        // var currentChunk = 0;
+        // console.log("vai enviar");
+        // fileReader.onload = function() {
+        //     channel.send( fileReader.result );
+        //     currentChunk++;
+        //
+        //     if( BYTES_PER_CHUNK * currentChunk < file.size ) {
+        //         readNextChunk(fileReader, file, currentChunk);
+        //     }
+        // };
+        // readNextChunk(fileReader, file, currentChunk);
+        chunkSize = channel.maxRetransmits;
+        var sliceFile = function(offset) {
+            var reader = new window.FileReader();
+            reader.onload = (function() {
+                return function(e) {
+                    channel.send(e.target.result);
+                    if (file.size > offset + e.target.result.byteLength) {
+                        window.setTimeout(sliceFile, 0, offset + chunkSize);
+                    }
+                };
+            })(file);
+            var slice = file.slice(offset, offset + chunkSize);
+            reader.readAsArrayBuffer(slice);
         };
-        readNextChunk(fileReader, file, currentChunk);
+        sliceFile(0);
     }
 }
